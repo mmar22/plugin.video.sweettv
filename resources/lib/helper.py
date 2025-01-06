@@ -59,16 +59,14 @@ class Helper:
         self.base_api_url = 'https://api.sweet.tv/{}'#SigninService/Email.json'  'https://kanalsportowy.pl/api/{}'
        # self.main_page = self.base_api_url.format('products/sections/main')
 
-        self.auth_url = self.base_api_url.format('SigninService/Email.json')
+        self.auth_url = self.base_api_url.format('SigninService/Start.json')
+        self.check_auth_url = self.base_api_url.format('SigninService/GetStatus.json')
         self.token_url = self.base_api_url.format('AuthenticationService/Token.json')
-        self.UA ='Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:105.0) Gecko/20100101 Firefox/105.0'
-        self.version = '4.7.06'
+        self.UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+        self.version = '6.4.96'
         self.params = {}
         
 
-
-        self.username = self.get_setting('username')
-        self.password = self.get_setting('password')
         self.subtitles = self.get_setting('subtitles')
 
             
@@ -82,7 +80,7 @@ class Helper:
             'Host': 'api.sweet.tv',
             'user-agent': self.UA,
             'accept': 'application/json, text/plain, */*',
-            'accept-language': 'pl',
+            'accept-language': 'hu',
             'x-device': '1;22;0;2;'+ self.version,
             'origin': 'https://sweet.tv',
             'dnt': '1',
@@ -90,6 +88,30 @@ class Helper:
         }
         if  self.bearer:
             self.headers.update({'authorization': self.bearer})
+
+        self.json_data = {
+            "device": {
+                "type": "DT_SmartTV",
+                "sub_type": "DST_WINDOWS",
+                "application": {
+                    "type": "AT_SWEET_TV_Player"
+                },
+                "model": self.UA,
+                "firmware": {
+                    "versionCode": 1,
+                    "versionString": self.version
+                },
+                "uuid": self.uuid,
+                "supported_drm": {
+                    "widevine_modular": True
+                },
+                "screen_info": {
+                    "aspectRatio": 6,
+                    "width": 1920,
+                    "height": 1080
+                }
+            }
+        }
 
     @property
     def sess(self):

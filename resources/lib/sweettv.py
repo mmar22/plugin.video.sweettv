@@ -1,19 +1,25 @@
 # coding: UTF-8
-import ast
-import sys, re
+import sys
 import xbmcgui, xbmcplugin, xbmcvfs
+import xbmc
 import time
 import requests
 import routing
+import xml.etree.ElementTree as ET
 from datetime import datetime
+import threading
+import urllib3
+urllib3.disable_warnings()
 
 from .helper import Helper
 
 base_url = sys.argv[0]
-handle = int(sys.argv[1])
+try:
+    handle = int(sys.argv[1])
+except:
+    handle = None  # or whatever you want to do
 helper = Helper(base_url, handle)
 plugin = routing.Plugin()
-
 
 try:
     # Python 3
@@ -36,7 +42,7 @@ def channelList():
     timestamp = int(time.time())
     json_data = {
     'epg_limit_prev': 1,
-    'epg_limit_next': 10,
+    'epg_limit_next': 100,
     'epg_current_time': timestamp,
     'need_epg': True,
     'need_list': True,
@@ -47,21 +53,28 @@ def channelList():
     'need_big_icons': False,}
 
     url = helper.base_api_url.format('TvService/GetChannels.json')
-    headers = {
-            'Host': 'api.sweet.tv',
-            'user-agent': helper.UA,
-            'accept': 'application/json, text/plain, */*',
-            'accept-language': 'pl',
-            'x-device': '1;22;0;2;'+ helper.version,
-            'origin': 'https://sweet.tv',
-            'dnt': '1',
-            'referer': 'https://sweet.tv/',
-            'authorization': helper.get_setting('bearer')
-            }
-    acx = helper.get_setting('bearer')
-    acx2 = helper.get_setting('refresh_token')
+    jsdata = helper.request_sess(url, 'post', headers=helper.headers, data = json_data, json=True, json_data = True)
 
-    jsdata = helper.request_sess(url, 'post', headers=headers, data = json_data, json=True, json_data = True)
+    if "list" in jsdata:
+        xml_root = ET.Element("tv")
+        for json_channel in jsdata.get("list"):
+            channel = ET.SubElement(xml_root, "channel", attrib={"id":json_channel.get("name")})
+            ET.SubElement(channel, "display-name", lang="hu").text = json_channel.get("name")
+            ET.SubElement(channel, "icon", src=json_channel.get("icon_url"))
+            if "epg" in json_channel:
+                for json_epg in json_channel.get("epg"):
+                    programme = ET.SubElement(xml_root, "programme", attrib={"start": time.strftime('%Y%m%d%H%M%S', time.gmtime(json_epg.get("time_start"))) + " +0100", "stop": time.strftime('%Y%m%d%H%M%S', time.gmtime(json_epg.get("time_stop"))) + " +0100", "channel": json_channel.get("name")})
+                    ET.SubElement(programme, "title", lang="hu").text = json_epg.get("text")
+
+        tree = ET.ElementTree(xml_root)
+        ET.indent(tree, space="  ", level=0)
+        xmlstr = ET.tostring(xml_root, encoding='utf8')
+        path_m3u = helper.get_setting('path_m3u')
+        file_name = helper.get_setting('name_epg')
+        if path_m3u != '' and file_name != '':
+            f = xbmcvfs.File(path_m3u + file_name, 'w')
+            f.write(xmlstr)
+            f.close()
     
     return jsdata
     
@@ -69,13 +82,21 @@ def channelList():
 @plugin.route('/')
 def root():
     CreateDatas()
+    
+    refresh_token = helper.get_setting('refresh_token')
+    
+    xbmc.log("refresh " + refresh_token, xbmc.LOGDEBUG)
+    xbmc.log("logged " + str(helper.get_setting('logged')), xbmc.LOGDEBUG)
 	
-    if helper.logged:
+    if refresh_token == 'None':
+        helper.set_setting('bearer', '')    
+        helper.set_setting('logged', 'false')
+    
+    if helper.get_setting('logged'):
         startwt()
-
     else:
-        helper.add_item('[COLOR lightgreen][B]Zaloguj[/COLOR][/B]', plugin.url_for(login),folder=False)
-        helper.add_item('[B]Ustawienia[/B]', plugin.url_for(ustawienia),folder=False)
+        helper.add_item('[COLOR lightgreen][B]Login[/COLOR][/B]', plugin.url_for(login),folder=False)
+        helper.add_item('[B]Settings[/B]', plugin.url_for(settings),folder=False)
 
     helper.eod()
 
@@ -90,42 +111,27 @@ def CreateDatas():
 def startwt():
     helper.add_item('[B]TV[/B]', plugin.url_for(mainpage,id='live'),folder=True)
     helper.add_item('[B]Replay[/B]', plugin.url_for(mainpage,id='replay'),folder=True)
-    helper.add_item('[B]Wyloguj[/B]', plugin.url_for(logout),folder=False)
-def refreshToken():
+    helper.add_item('[B]Logout[/B]', plugin.url_for(logout),folder=False)
 
-    json_data = {
-        'device': {
-            'type': 'DT_Web_Browser',
-            'application': {
-                'type': 'AT_SWEET_TV_Player',
-            },
-            'model': helper.UA,
-            'firmware': {
-                'versionCode': 1,
-                'versionString': helper.version,
-            },
-            'uuid': helper.uuid,
-            'supported_drm': {
-                'widevine_modular': True,
-            },
-            'screen_info': {
-                'aspectRatio': 6,
-                'width': 1366,
-                'height': 768,
-            },
-        },
-        'refresh_token': helper.refresh_token,
-    }
+def refreshToken(service=False):
+    json_data = helper.json_data
+    json_data.update({"refresh_token": helper.get_setting('refresh_token')})
+
     jsdata = helper.request_sess(helper.token_url, 'post', headers=helper.headers, data = json_data, json=True, json_data = True)
-    if jsdata.get("result", None) == 'OK':
+    xbmc.log("refresh " + str(jsdata), xbmc.LOGDEBUG)
 
-        access_token = jsdata.get("access_token", None)
+    if service:
+        timer = threading.Timer(30 * 60, refreshToken)
+        timer.start()
 
-        helper.set_setting('bearer', 'Bearer '+to_unicode(access_token))
+    if jsdata.get("result", None) == 'COMPLETED' or jsdata.get("result", None) == 'OK':
+        xbmc.log("success", xbmc.LOGDEBUG)
+        access_token = jsdata.get("access_token")
+        helper.set_setting('bearer', 'Bearer ' + to_unicode(access_token))
 
+        channelList()
         return True
     else:
-        
         return False
 
 @plugin.route('/getEPG/<id>')
@@ -145,30 +151,15 @@ def getEPG(id):
         "need_offsets": False
     }
     url = 'https://api.sweet.tv/TvService/GetChannels.json'
-    headers = {
-            'Host': 'api.sweet.tv',
-            'user-agent': helper.UA,
-            'accept': 'application/json, text/plain, */*',
-            'accept-language': 'pl',
-            'x-device': '1;22;0;2;'+ helper.version,
-            'origin': 'https://sweet.tv',
-            'dnt': '1',
-            'referer': 'https://sweet.tv/',
-            'authorization': helper.get_setting('bearer')
-    }
-    acx = helper.get_setting('bearer')
-    acx2 = helper.get_setting('refresh_token')
-
-    jsdata = helper.request_sess(url, 'post', headers=headers, data = json_data, json=True, json_data = True)
+    jsdata = helper.request_sess(url, 'post', headers=helper.headers, data = json_data, json=True, json_data = True)
 
     if jsdata.get("code", None) == 16:
-        if jsdata.get("message", None) == 'token is expired':
-            helper.set_setting('bearer', '')
-            refr = refreshToken()
-            if refr:
-                mainpage(id)
-            else:
-                return
+        helper.set_setting('bearer', '')
+        refr = refreshToken()
+        if refr:
+            mainpage(id)
+        else:
+            return
     if jsdata.get("status", None) == 'OK':
         progs=jsdata['list'][0]['epg']
         for p in progs:
@@ -199,15 +190,14 @@ def getEPG(id):
 @plugin.route('/mainpage/<id>')    
 def mainpage(id):
     jsdata=channelList()
-    
+
     if jsdata.get("code", None) == 16:
-        if jsdata.get("message", None) == 'token is expired':
-            helper.set_setting('bearer', '')
-            refr = refreshToken()
-            if refr:
-                mainpage(id)
-            else:
-                return
+        helper.set_setting('bearer', '')
+        refr = refreshToken()
+        if refr:
+            mainpage(id)
+        else:
+            return
     
     if jsdata.get("status", None) == 'OK':
         for j in jsdata.get('list', []):
@@ -216,7 +206,7 @@ def mainpage(id):
             isShow=False
             if (id=='replay' and catchup and available) or (id=='live' and available):
                 isShow=True
-            if isShow==True:
+            if isShow:
                 _id = str(j.get('id',None))
                 title = j.get('name',None)
                 slug = j.get('slug',None)
@@ -235,7 +225,7 @@ def mainpage(id):
                     mod = plugin.url_for(playvid, id=idx)
                     fold = False
                     ispla = True
-                elif id=='replay':
+                else: # id=='replay'
                     dur=str(j.get('catchup_duration',None))
                     idx = _id+'|'+dur
                     mod = plugin.url_for(getEPG, id=idx)
@@ -255,15 +245,15 @@ def mainpage(id):
 def empty():
     return
 
-@plugin.route('/ustawienia')
-def ustawienia():
+@plugin.route('/settings')
+def settings():
     helper.open_settings()
     helper.refresh()
 
 
 @plugin.route('/logout')
 def logout():
-    log_out = helper.dialog_choice('Uwaga','Chcesz się wylogować?',agree='TAK', disagree='NIE')
+    log_out = helper.dialog_choice('Logout','Do you want to log out?',agree='Yes', disagree='No')
     if log_out:
         helper.set_setting('bearer', '')    
         helper.set_setting('logged', 'false')
@@ -271,61 +261,63 @@ def logout():
         
 @plugin.route('/login')
 def login():
-
-    if not helper.username or not helper.password:
-        helper.notification('Info', 'Brak danych logowania.\n Wpisz je w usatwieniach')
-    
+    jsdata = helper.request_sess(helper.auth_url, 'post', headers=helper.headers, data = helper.json_data, json=True, json_data = True)
+    auth_code = jsdata.get("auth_code")
+    if jsdata.get("result") != 'OK' or not auth_code:
+        helper.notification('Information', 'Login error')
         helper.set_setting('logged', 'false')
+        return
+    dialog = xbmcgui.Dialog()
+    # show loading dialog
+    pDialog = xbmcgui.DialogProgress()
+    pDialog.create('Sweet.tv', f"Enter code: {auth_code}")
+    # wait for user to enter code
+    jsdata = {"auth_code": auth_code}
+    from json import dumps
+    json_data = dumps(jsdata, separators=(',', ':'))
+    result = None
+    headers = {
+        **helper.headers,
+        'Content-Type': 'application/json',
+    }
+    while not result:
+        if pDialog.iscanceled():
+            helper.notification('Information', 'Login interrupted')
+            helper.set_setting('logged', 'false')
+            return
+        jsdata = helper.request_sess(helper.check_auth_url, 'post', headers=headers, data = json_data, json=True, json_data = False)
+        sys.stderr.write(str(jsdata))
+        if jsdata.get("result") == "COMPLETED":
+            result = jsdata
+        else:
+            time.sleep(3)
+
+    if result.get("result") == 'COMPLETED':
+
+        access_token = result.get("access_token")
+        refresh_token = result.get("refresh_token")
+        helper.set_setting('bearer', 'Bearer '+to_unicode(access_token))
+        helper.set_setting('refresh_token', to_unicode(refresh_token))
+        helper.set_setting('logged', 'true')
 
     else:
-    
-        json_data = {
-            'device': {
-                'type': 'DT_Web_Browser',
-                'application': {
-                    'type': 'AT_SWEET_TV_Player',
-                },
-                'model': helper.UA,
-                'firmware': {
-                    'versionCode': 1,
-                    'versionString': helper.version,
-                },
-                'uuid': helper.uuid,
-                'supported_drm': {
-                    'widevine_modular': True,
-                },
-                'screen_info': {
-                    'aspectRatio': 6,
-                    'width': 1366,
-                    'height': 768,
-                },
-            },
-            'email': helper.username,
-            'password': helper.password,
-        }
 
-        jsdata = helper.request_sess(helper.auth_url, 'post', headers=helper.headers, data = json_data, json=True, json_data = True)
-        if jsdata.get("result", None) == 'OK':
+        info=jsdata.get('result', None)
+        helper.notification('Information', info)
 
-            access_token = jsdata.get("access_token", None)
-            refresh_token = jsdata.get("refresh_token", None)
-            helper.set_setting('bearer', 'Bearer '+to_unicode(access_token))
-            helper.set_setting('refresh_token', to_unicode(refresh_token))
-            helper.set_setting('logged', 'true')
-
-        else:
-
-            info=jsdata.get('result', None)
-            helper.notification('Information', info)
-
-            helper.set_setting('logged', 'false')
+        helper.set_setting('logged', 'false')
 
     helper.refresh()
 
 @plugin.route('/playvid/<id>')
 def playvid(id):
+    DRM = None
+    lic_url = None
+    PROTOCOL = 'mpd'
+    subs = None
+
     if not helper.get_setting('logged'):
-        xbmcgui.Dialog().notification('Sweet.tv', 'Zaloguj się we wtyczce', xbmcgui.NOTIFICATION_INFO)
+        xbmcgui.Dialog().notification('Sweet.tv', 'Log in to the plugin', xbmcgui.NOTIFICATION_INFO)
         xbmcplugin.setResolvedUrl(helper.handle, False, xbmcgui.ListItem())
     else:
         idx,pid = id.split('|')
@@ -339,33 +331,20 @@ def playvid(id):
         if pid!='null':
             json_data.update({'epg_id':int(pid)})
             vod=True
-        
-        headers = {
-                'Host': 'api.sweet.tv',
-                'user-agent': helper.UA,
-                'accept': 'application/json, text/plain, */*',
-                'accept-language': 'pl',
-                'x-device': '1;22;0;2;'+ helper.version,
-                'origin': 'https://sweet.tv',
-                'dnt': '1',
-                'referer': 'https://sweet.tv/',
-                'authorization': helper.get_setting('bearer')
-        }
                 
         url = helper.base_api_url.format('TvService/OpenStream.json')
-        jsdata = helper.request_sess(url, 'post', headers=headers, data = json_data, json=True, json_data = True)
+        jsdata = helper.request_sess(url, 'post', headers=helper.headers, data = json_data, json=True, json_data = True)
 
         if jsdata.get("code", None) == 16:
-            if jsdata.get("message", None) == 'token is expired':
-                helper.set_setting('bearer', '')
-                refr = refreshToken()
-                if refr:
-                    playvid(id)
-                else:
-                    return
+            helper.set_setting('bearer', '')
+            refr = refreshToken()
+            if refr:
+                playvid(id)
+            else:
+                return
 
         if jsdata.get("code", None) == 13:
-            xbmcgui.Dialog().notification('Sweet.tv', 'Nagranie niedostępne', xbmcgui.NOTIFICATION_INFO)
+            xbmcgui.Dialog().notification('Sweet.tv', 'Recording unavailable', xbmcgui.NOTIFICATION_INFO)
             xbmcplugin.setResolvedUrl(helper.handle, False, xbmcgui.ListItem())
         if jsdata.get("result", None) == 'OK':
             host = jsdata.get('http_stream', None).get('host', None).get('address', None)
@@ -394,7 +373,7 @@ def playvid(id):
                 PROTOCOL = 'hls'
                 subs =None
             
-            if helper.get_setting('playerType')=='ffmpeg' and DRM==None: 
+            if helper.get_setting('playerType')=='ffmpeg' and DRM is None:
                 helper.ffmpeg_player(stream_url)
             else:
                 helper.PlayVid(stream_url, lic_url, PROTOCOL, DRM, flags=False, subs = subs,vod=vod)
@@ -402,36 +381,35 @@ def playvid(id):
 @plugin.route('/listM3U')
 def listM3U():
     if helper.get_setting('logged'):
-        file_name = helper.get_setting('fname')
+        file_name = helper.get_setting('name_m3u')
         path_m3u = helper.get_setting('path_m3u')
         if file_name == '' or path_m3u == '':
-            xbmcgui.Dialog().notification('Sweet.tv', 'Podaj nazwę pliku oraz katalog docelowy.', xbmcgui.NOTIFICATION_ERROR)
+            xbmcgui.Dialog().notification('Sweet.tv', 'Specify the file name and destination directory.', xbmcgui.NOTIFICATION_ERROR)
             return
-        xbmcgui.Dialog().notification('Sweet tv', 'Generuję listę M3U.', xbmcgui.NOTIFICATION_INFO)
+        xbmcgui.Dialog().notification('Sweet tv', 'Generating M3U list.', xbmcgui.NOTIFICATION_INFO)
         data = '#EXTM3U\n'
         channels=channelList()
         if channels.get("code", None) == 16:
-            if channels.get("message", None) == 'token is expired':
-                helper.set_setting('bearer', '')
-                refr = refreshToken()
-                if refr:
-                    channels=channelList()
-                else:
-                    return
+            helper.set_setting('bearer', '')
+            refr = refreshToken()
+            if refr:
+                channels=channelList()
+            else:
+                return
         if 'list' in channels:
             for c in channels['list']:
                 if c.get('available',None):
                     img=c.get('icon_v2_url',None)
                     cName=c.get('name',None)
                     cid=c.get('id',None)
-                    data += '#EXTINF:0 tvg-id="%s" tvg-logo="%s" group-title="Sweet.tv" ,%s\nplugin://plugin.video.sweettvpl/playvid/%s|null\n' %(cName,img,cName,cid)
+                    data += '#EXTINF:0 tvg-id="%s" tvg-logo="%s" group-title="Sweet.tv" ,%s\nplugin://plugin.video.sweettv/playvid/%s|null\n' %(cName,img,cName,cid)
             
             f = xbmcvfs.File(path_m3u + file_name, 'w')
             f.write(data)
             f.close()
-            xbmcgui.Dialog().notification('Sweet.tv', 'Wygenerowano listę M3U', xbmcgui.NOTIFICATION_INFO)
+            xbmcgui.Dialog().notification('Sweet.tv', 'M3U list generated.', xbmcgui.NOTIFICATION_INFO)
     else:
-        xbmcgui.Dialog().notification('Sweet.tv', 'Zaloguj się we wtyczce', xbmcgui.NOTIFICATION_INFO)
+        xbmcgui.Dialog().notification('Sweet.tv', 'Log in to the plugin.', xbmcgui.NOTIFICATION_INFO)
 
 class SweetTV(Helper):
     def __init__(self):

@@ -1,0 +1,10 @@
+This plugin is based on:
+https://github.com/mbebe/blomqvist
+http://users.atw.hu/mrdini/secret/plugin.video.sweettvpl-0.7.1.zip
+https://prohardver.hu/tema/kodi_xbmc_kiegeszito_magyar_nyelvu_online_filmekhe/hsz_43551-43551.html
+
+Some fixes and features are added, like periodic token refresh, EPG generation, English translation, etc...
+PRs are welcome
+
+Installation:
+Download the repository as ZIP and install the downloaded ZIP file in Kodi.
