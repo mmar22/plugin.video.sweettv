@@ -7,4 +7,4 @@ Some fixes and features are added, like periodic token refresh, EPG generation, 
 PRs are welcome
 
 Installation:
-Download the repository as ZIP and install the downloaded ZIP file in Kodi.
+Download the repository as ZIP, open the ZIP and rename the top directory from plugin.video.sweettv-main to plugin.video.sweettv and install the ZIP file in Kodi.
