@@ -67,7 +67,8 @@ def channelList():
                     ET.SubElement(programme, "title", lang="hu").text = json_epg.get("text")
 
         tree = ET.ElementTree(xml_root)
-        ET.indent(tree, space="  ", level=0)
+        if sys.version_info[:3] >= (3, 9, 0):
+            ET.indent(tree, space="  ", level=0)
         xmlstr = ET.tostring(xml_root, encoding='utf8')
         path_m3u = helper.get_setting('path_m3u')
         file_name = helper.get_setting('name_epg')
@@ -121,7 +122,7 @@ def refreshToken(service=False):
     xbmc.log("refresh " + str(jsdata), xbmc.LOGDEBUG)
 
     if service:
-        timer = threading.Timer(30 * 60, refreshToken)
+        timer = threading.Timer(30 * 60, refreshToken, [True])
         timer.start()
 
     if jsdata.get("result", None) == 'COMPLETED' or jsdata.get("result", None) == 'OK':
