@@ -114,25 +114,22 @@ def startwt():
     helper.add_item('[B]Replay[/B]', plugin.url_for(mainpage,id='replay'),folder=True)
     helper.add_item('[B]Logout[/B]', plugin.url_for(logout),folder=False)
 
-def refreshToken(service=False):
+def refreshToken():
     json_data = helper.json_data
     json_data.update({"refresh_token": helper.get_setting('refresh_token')})
 
     jsdata = helper.request_sess(helper.token_url, 'post', headers=helper.headers, data = json_data, json=True, json_data = True)
     xbmc.log("refresh " + str(jsdata), xbmc.LOGDEBUG)
 
-    if service:
-        timer = threading.Timer(30 * 60, refreshToken, [True])
-        timer.start()
-
     if jsdata.get("result", None) == 'COMPLETED' or jsdata.get("result", None) == 'OK':
-        xbmc.log("success", xbmc.LOGDEBUG)
+        xbmc.log("Token refresh success", xbmc.LOGDEBUG)
         access_token = jsdata.get("access_token")
         helper.set_setting('bearer', 'Bearer ' + to_unicode(access_token))
 
         channelList()
         return True
     else:
+        xbmc.log("Token refresh failed", xbmc.LOGERROR)
         return False
 
 @plugin.route('/getEPG/<id>')
