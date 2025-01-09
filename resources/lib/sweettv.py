@@ -69,7 +69,7 @@ def channelList():
         tree = ET.ElementTree(xml_root)
         if sys.version_info[:3] >= (3, 9, 0):
             ET.indent(tree, space="  ", level=0)
-        xmlstr = ET.tostring(xml_root, encoding='utf8')
+        xmlstr = ET.tostring(xml_root, encoding='utf-8', xml_declaration=True)
         path_m3u = helper.get_setting('path_m3u')
         file_name = helper.get_setting('name_epg')
         if path_m3u != '' and file_name != '':
