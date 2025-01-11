@@ -43,8 +43,6 @@ class Helper:
                     'fanart': self.addon.getAddonInfo('fanart'),
                     }
 
-        self.proxyport = self.get_setting('proxyport')
-
         try:
             self.kukis = self.load_file(self.datapath + 'kukis', isJSON=True)
         except:
@@ -65,9 +63,6 @@ class Helper:
         self.version = '6.4.96'
         self.params = {}
 
-        self.subtitles = self.get_setting('subtitles')
-
-        # self.API_CorrelationId = self.get_setting('CorrelationId')
         self.uuid = self.get_setting('uuid')
         self.bearer = self.get_setting('bearer')
         self.refresh_token = self.get_setting('refresh_token')
