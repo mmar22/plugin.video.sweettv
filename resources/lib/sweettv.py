@@ -68,7 +68,7 @@ def channelList():
                         "start": time.strftime('%Y%m%d%H%M%S', time.localtime(json_epg.get("time_start"))) + " +0100",
                         "stop": time.strftime('%Y%m%d%H%M%S', time.localtime(json_epg.get("time_stop") - 1)) + " +0100",
                         "channel": str(json_channel.get("id")) + ".id.com"})
-                    ET.SubElement(programme, "title", lang="hu").text = json_epg.get("text")
+                    ET.SubElement(programme, "title", lang="hu").text = ("!NOT AVAILABLE! " if json_epg.get("available") == False else "") + json_epg.get("text")
             else:
                 programme = ET.SubElement(xml_root, "programme", attrib={
                     "start": time.strftime('%Y%m%d%H%M%S', time.localtime(time.time())) + " +0100",
