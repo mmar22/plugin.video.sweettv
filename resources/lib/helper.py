@@ -1,20 +1,11 @@
-import calendar
-import collections
-import io
-import json
-import os
 import sys
-import time
-from datetime import datetime, timedelta
 from urllib.parse import quote
 
-import iso8601
 import requests
 import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
-import xbmcvfs
 
 from resources.lib.brotlipython import brotlidec
 
@@ -37,24 +28,15 @@ class Helper:
         self.addon = xbmcaddon.Addon()
         self.addon_name = xbmcaddon.Addon().getAddonInfo('id')
         self.addon_version = xbmcaddon.Addon().getAddonInfo('version')
-        self.datapath = self.translate_path(self.get_path('profile'))
 
         self.art = {'icon': self.addon.getAddonInfo('icon'),
                     'fanart': self.addon.getAddonInfo('fanart'),
                     }
 
-        try:
-            self.kukis = self.load_file(self.datapath + 'kukis', isJSON=True)
-        except:
-            self.kukis = {}
-
         self._sess = None
-        self.kuk = {}
 
         # API
-
-        self.base_api_url = 'https://api.sweet.tv/{}'  # SigninService/Email.json'  'https://kanalsportowy.pl/api/{}'
-        # self.main_page = self.base_api_url.format('products/sections/main')
+        self.base_api_url = 'https://api.sweet.tv/{}'
 
         self.auth_url = self.base_api_url.format('SigninService/Start.json')
         self.check_auth_url = self.base_api_url.format('SigninService/GetStatus.json')
@@ -110,44 +92,8 @@ class Helper:
     def sess(self):
         if self._sess is None:
             self._sess = requests.Session()
-            if self.kukis:
-                self._sess.cookies.update(self.kukis)
-
-                self._sess.cookies.update(self.kuk)
 
         return self._sess
-
-    def input_dialog(self, text, typ=None):
-        typ = xbmcgui.INPUT_ALPHANUM if not typ else typ
-        return xbmcgui.Dialog().input(text, type=typ)
-
-    def get_path(self, data):
-        return self.addon.getAddonInfo(data)
-
-    def translate_path(self, data):
-        try:
-            return xbmcvfs.translatePath(data)
-        except:
-            return xbmc.translatePath(data).decode('utf-8')
-
-    def save_file(self, file, data, isJSON=False):
-        with io.open(file, 'w', encoding="utf-8") as f:
-            if isJSON == True:
-                str_ = json.dumps(data, indent=4, sort_keys=True, separators=(',', ': '), ensure_ascii=False)
-                f.write(str(str_))
-            else:
-                f.write(data)
-
-    def load_file(self, file, isJSON=False):
-
-        if not os.path.isfile(file):
-            return None
-
-        with io.open(file, 'r', encoding='utf-8') as f:
-            if isJSON == True:
-                return json.load(f, object_pairs_hook=collections.OrderedDict)
-            else:
-                return f.read()
 
     def get_setting(self, setting_id):
         setting = xbmcaddon.Addon(self.addon_name).getSetting(setting_id)
@@ -163,15 +109,6 @@ class Helper:
 
     def open_settings(self):
         xbmcaddon.Addon(self.addon_name).openSettings()
-
-    def sleep(self, time):
-        return xbmc.sleep(int(time))
-
-    def dialog_select(self, heading, label):
-        return xbmcgui.Dialog().select(heading, label)
-
-    def dialog_multiselect(self, heading, label):
-        return xbmcgui.Dialog().dialog_multiselect(heading, label)
 
     def dialog_choice(self, heading, message, agree, disagree):
         return xbmcgui.Dialog().yesno(heading, message, yeslabel=agree, nolabel=disagree)
@@ -203,18 +140,6 @@ class Helper:
 
     def refresh(self):
         return xbmc.executebuiltin('Container.Refresh()')
-
-    def update(self, func=''):
-        return xbmc.executebuiltin('Container.Refresh(%s)' % func)
-
-    def updatex(self, func=''):
-        return xbmc.executebuiltin('Container.Update(%s)' % func)
-
-    def update(self, func=''):
-        return xbmc.executebuiltin('Container.Refresh(%s)' % func)
-
-    def runplugin(self, func=''):
-        return xbmc.executebuiltin('RunPlugin(%s))' % func)
 
     def notification(self, heading, message):
         xbmcgui.Dialog().notification(heading, message, time=3000)
@@ -284,94 +209,3 @@ class Helper:
         sURL = stream_url + '|User-Agent=' + quote(self.UA) + '&Referer=' + quote('https://sweet.tv/')
         play_item = xbmcgui.ListItem(path=sURL)
         xbmcplugin.setResolvedUrl(self.handle, True, listitem=play_item)
-
-    def formatTime(self, czas, format):
-        try:
-            formated = datetime.strptime(czas, format)
-        except TypeError:
-            formated = datetime(*(time.strptime(czas, format)[0:6]))
-        formatedx = (formated).strftime('%H:%M')
-        return formatedx
-
-    def getCorrectTime(self, czas):
-        try:
-            current_date_temp = datetime.strptime(czas, "%Y-%m-%dT%H:%M:%SZ")  # '2022-04-16T12:30:00Z'
-        except TypeError:
-            current_date_temp = datetime(*(time.strptime(czas, "%Y-%m-%dT%H:%M:%SZ")[0:6]))
-        datastart = (current_date_temp + timedelta(hours=+2)).strftime('%H:%M')
-        return datastart
-
-    def timeNow(self, czas=False):
-        now = datetime.utcnow() + timedelta(hours=2)
-
-        czas = now.strftime('%Y-%m-%d')
-
-        try:
-            format_date = datetime.strptime(czas, '%Y-%m-%d')
-        except TypeError:
-            format_date = datetime(*(time.strptime(czas, '%Y-%m-%d')[0:6]))
-        if czas:
-            return '&since={}T00%3A00%2B0200&till={}T23%3A59%2B0200'.format(czas,
-                                                                            czas)  # '&since='+2022-10-09T00:00+0200&till=2022-10-09T23%3A59%2B0200czas
-        else:
-            return format_date
-
-    def CreateDays(self):
-        dzis = self.timeNow()
-        timestampdzis = calendar.timegm(dzis.timetuple())
-        tydzien = int(timestampdzis) - 2627424
-        out = []
-        for i in range(int(timestampdzis), tydzien, -86400):
-            x = datetime.utcfromtimestamp(i)
-
-            dzien = (x.strftime('%d.%m'))
-            a1 = x.strftime("%Y.%d.%m")
-
-            try:
-                current_date_temp = datetime.strptime(a1, "%Y.%d.%m")
-            except TypeError:
-                current_date_temp = datetime(*(time.strptime(a1, "%Y.%d.%m")[0:6]))
-            datastart = (current_date_temp + timedelta(days=-1)).strftime('%Y-%m-%dT')
-
-            dataend = (current_date_temp).strftime('%Y-%m-%dT')
-            dod = '&start_after_time=' + datastart + '22%3A00%3A00.000Z&start_before_time=' + dataend + '22%3A00%3A00.000Z'
-
-            dnitygodnia = ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela")
-
-            day = x.weekday()
-
-            dzientyg = dnitygodnia[day]
-
-            out.append({'dzien': dzientyg + ' ' + dzien, 'dodane': str(dod)})
-
-        return out
-
-    def string_to_date(self, string, string_format):
-        s_tuple = tuple([int(x) for x in string[:10].split('-')]) + tuple([int(x) for x in string[11:].split(':')])
-        s_to_datetime = datetime(*s_tuple).strftime(string_format)
-        return s_to_datetime
-
-    def parse_datetime(self, iso8601_string, localize=False):
-        """Parse ISO8601 string to datetime object."""
-        datetime_obj = iso8601.parse_date(iso8601_string)
-        if localize:
-            return self.utc_to_local(datetime_obj)
-        else:
-            return datetime_obj
-
-    def to_timestamp(self, a_date):
-        if a_date.tzinfo:
-            epoch = datetime(1970, 1, 1, tzinfo=pytz.UTC)
-            diff = a_date.astimezone(pytz.UTC) - epoch
-        else:
-            epoch = datetime(1970, 1, 1)
-            diff = a_date - epoch
-        return int(diff.total_seconds()) * 1000
-
-    @staticmethod
-    def utc_to_local(utc_dt):
-        # get integer timestamp to avoid precision lost
-        timestamp = calendar.timegm(utc_dt.timetuple())
-        local_dt = datetime.fromtimestamp(timestamp)
-        assert utc_dt.resolution >= timedelta(microseconds=1)
-        return local_dt.replace(microsecond=utc_dt.microsecond)
