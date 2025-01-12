@@ -61,53 +61,57 @@ def channelList():
     url = helper.base_api_url.format('TvService/GetChannels.json')
     jsdata = helper.request_sess(url, 'post', headers=helper.headers, data=json_data, json=True, json_data=True)
 
-    if "list" in jsdata:
-        xml_root = ET.Element("tv")
-        for json_channel in jsdata.get("list"):
-            channel = ET.SubElement(xml_root, "channel", attrib={"id": str(json_channel.get("id")) + ".id.com"})
-            ET.SubElement(channel, "display-name", lang="hu").text = json_channel.get("name")
-            ET.SubElement(channel, "icon", src=json_channel.get("icon_url"))
-        for json_channel in jsdata.get("list"):
-            if "epg" in json_channel:
-                for json_epg in json_channel.get("epg"):
+    if jsdata.get("status", None) == 'OK':
+        if "list" in jsdata:
+            xml_root = ET.Element("tv")
+            for json_channel in jsdata.get("list"):
+                channel = ET.SubElement(xml_root, "channel", attrib={"id": str(json_channel.get("id")) + ".id.com"})
+                ET.SubElement(channel, "display-name", lang="hu").text = json_channel.get("name")
+                ET.SubElement(channel, "icon", src=json_channel.get("icon_url"))
+            for json_channel in jsdata.get("list"):
+                if "epg" in json_channel:
+                    for json_epg in json_channel.get("epg"):
+                        programme = ET.SubElement(xml_root, "programme", attrib={
+                            "start": time.strftime('%Y%m%d%H%M%S', time.localtime(json_epg.get("time_start"))) + " +0100",
+                            "stop": time.strftime('%Y%m%d%H%M%S', time.localtime(json_epg.get("time_stop") - 1)) + " +0100",
+                            "channel": str(json_channel.get("id")) + ".id.com"})
+                        ET.SubElement(programme, "title", lang="hu").text = ("!NOT AVAILABLE! " if json_epg.get(
+                            "available") == False else "") + json_epg.get("text")
+                else:
                     programme = ET.SubElement(xml_root, "programme", attrib={
-                        "start": time.strftime('%Y%m%d%H%M%S', time.localtime(json_epg.get("time_start"))) + " +0100",
-                        "stop": time.strftime('%Y%m%d%H%M%S', time.localtime(json_epg.get("time_stop") - 1)) + " +0100",
+                        "start": time.strftime('%Y%m%d%H%M%S', time.localtime(time.time())) + " +0100",
+                        "stop": time.strftime('%Y%m%d%H%M%S', time.localtime(time.time() + (12 * 60 * 60))) + " +0100",
                         "channel": str(json_channel.get("id")) + ".id.com"})
-                    ET.SubElement(programme, "title", lang="hu").text = ("!NOT AVAILABLE! " if json_epg.get(
-                        "available") == False else "") + json_epg.get("text")
-            else:
-                programme = ET.SubElement(xml_root, "programme", attrib={
-                    "start": time.strftime('%Y%m%d%H%M%S', time.localtime(time.time())) + " +0100",
-                    "stop": time.strftime('%Y%m%d%H%M%S', time.localtime(time.time() + (12 * 60 * 60))) + " +0100",
-                    "channel": str(json_channel.get("id")) + ".id.com"})
-                ET.SubElement(programme, "title", lang="hu").text = json_channel.get("name")
+                    ET.SubElement(programme, "title", lang="hu").text = json_channel.get("name")
 
-        tree = ET.ElementTree(xml_root)
-        if sys.version_info[:3] >= (3, 9, 0):
-            ET.indent(tree, space="  ", level=0)
-        xmlstr = ET.tostring(xml_root, encoding='utf-8', xml_declaration=True)
-        path_m3u = helper.get_setting('path_m3u')
-        file_name = helper.get_setting('name_epg')
-        if path_m3u != '' and file_name != '':
-            f = xbmcvfs.File(path_m3u + file_name, 'w')
-            f.write(xmlstr)
-            f.close()
+            tree = ET.ElementTree(xml_root)
+            if sys.version_info[:3] >= (3, 9, 0):
+                ET.indent(tree, space="  ", level=0)
+            xmlstr = ET.tostring(xml_root, encoding='utf-8', xml_declaration=True)
+            path_m3u = helper.get_setting('path_m3u')
+            file_name = helper.get_setting('name_epg')
+            if path_m3u != '' and file_name != '':
+                f = xbmcvfs.File(path_m3u + file_name, 'w')
+                f.write(xmlstr)
+                f.close()
 
-        data = '#EXTM3U\n'
-        for json_channel in jsdata.get("list"):
-            if json_channel.get('available', None):
-                img = json_channel.get('icon_v2_url', None)
-                cName = json_channel.get('name', None)
-                cid = json_channel.get('id', None)
-                data += '#EXTINF:0 tvg-id="%s.id.com" tvg-name="%s" tvg-logo="%s" group-title="Sweet.tv" ,%s\nplugin://plugin.video.sweettv/playvid/%s|null\n' % (
-                    cid, cName, img, cName, cid)
+            data = '#EXTM3U\n'
+            for json_channel in jsdata.get("list"):
+                if json_channel.get('available', None):
+                    img = json_channel.get('icon_v2_url', None)
+                    cName = json_channel.get('name', None)
+                    cid = json_channel.get('id', None)
+                    data += '#EXTINF:0 tvg-id="%s.id.com" tvg-name="%s" tvg-logo="%s" group-title="Sweet.tv" ,%s\nplugin://plugin.video.sweettv/playvid/%s|null\n' % (
+                        cid, cName, img, cName, cid)
 
-        file_name = helper.get_setting('name_m3u')
-        if path_m3u != '' and file_name != '':
-            f = xbmcvfs.File(path_m3u + file_name, 'w')
-            f.write(data)
-            f.close()
+            file_name = helper.get_setting('name_m3u')
+            if path_m3u != '' and file_name != '':
+                f = xbmcvfs.File(path_m3u + file_name, 'w')
+                f.write(data)
+                f.close()
+    else:
+        xbmc.log("Failed to update channel list", xbmc.LOGERROR)
+        xbmc.log("Failed to update channel list " + str(jsdata), xbmc.LOGDEBUG)
 
     return jsdata
 
