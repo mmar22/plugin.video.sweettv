@@ -162,6 +162,9 @@ def refreshToken():
         access_token = jsdata.get("access_token")
         helper.set_setting('bearer', 'Bearer ' + to_unicode(access_token))
 
+        if 'authorization' in helper.headers:
+            helper.headers['authorization'] = helper.get_setting('bearer')
+
         channelList()
         return True
     else:
