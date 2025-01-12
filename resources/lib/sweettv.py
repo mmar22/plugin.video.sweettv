@@ -56,7 +56,8 @@ def channelList():
         'need_offsets': False,
         'need_hash': False,
         'need_icons': False,
-        'need_big_icons': False, }
+        'need_big_icons': False,
+    }
 
     url = helper.base_api_url.format('TvService/GetChannels.json')
     jsdata = helper.request_sess(url, 'post', headers=helper.headers, data=json_data, json=True, json_data=True)
@@ -171,9 +172,7 @@ def refreshToken():
         xbmc.log("Token refresh success", xbmc.LOGDEBUG)
         access_token = jsdata.get("access_token")
         helper.set_setting('bearer', 'Bearer ' + to_unicode(access_token))
-
-        if 'authorization' in helper.headers:
-            helper.headers['authorization'] = helper.get_setting('bearer')
+        helper.headers.update({'authorization': helper.get_setting('bearer')})
 
         channelList()
         return True
