@@ -66,7 +66,7 @@ def channelList():
             xml_root = ET.Element("tv")
             for json_channel in jsdata.get("list"):
                 channel = ET.SubElement(xml_root, "channel", attrib={"id": str(json_channel.get("id")) + ".id.com"})
-                ET.SubElement(channel, "display-name", lang="hu").text = json_channel.get("name")
+                ET.SubElement(channel, "display-name", lang=helper.countryCode).text = json_channel.get("name")
                 ET.SubElement(channel, "icon", src=json_channel.get("icon_url"))
             for json_channel in jsdata.get("list"):
                 if "epg" in json_channel:
@@ -78,16 +78,17 @@ def channelList():
                                                   time.localtime(json_epg.get("time_stop") - 1)) + " +0100",
                             "channel": str(json_channel.get("id")) + ".id.com"})
                         if json_epg.get("available") == False and json_channel.get("live_blackout") == True:
-                            ET.SubElement(programme, "title", lang="hu").text = "!NOT AVAILABLE! " + json_epg.get(
+                            ET.SubElement(programme, "title",
+                                          lang=helper.countryCode).text = "!NOT AVAILABLE! " + json_epg.get(
                                 "text")
                         else:
-                            ET.SubElement(programme, "title", lang="hu").text = json_epg.get("text")
+                            ET.SubElement(programme, "title", lang=helper.countryCode).text = json_epg.get("text")
                 else:
                     programme = ET.SubElement(xml_root, "programme", attrib={
                         "start": time.strftime('%Y%m%d%H%M%S', time.localtime(time.time())) + " +0100",
                         "stop": time.strftime('%Y%m%d%H%M%S', time.localtime(time.time() + (12 * 60 * 60))) + " +0100",
                         "channel": str(json_channel.get("id")) + ".id.com"})
-                    ET.SubElement(programme, "title", lang="hu").text = json_channel.get("name")
+                    ET.SubElement(programme, "title", lang=helper.countryCode).text = json_channel.get("name")
 
             tree = ET.ElementTree(xml_root)
             if sys.version_info[:3] >= (3, 9, 0):

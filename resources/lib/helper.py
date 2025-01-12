@@ -67,12 +67,13 @@ class Helper:
         self.bearer = self.get_setting('bearer')
         self.refresh_token = self.get_setting('refresh_token')
         self.logged = self.get_setting('logged')
+        self.countryCode = self.get_setting('countryCode')
 
         self.headers = {
             'Host': 'api.sweet.tv',
             'user-agent': self.UA,
             'accept': 'application/json, text/plain, */*',
-            'accept-language': 'hu',
+            'accept-language': self.countryCode,
             'x-device': '1;22;0;2;' + self.version,
             'origin': 'https://sweet.tv',
             'dnt': '1',
