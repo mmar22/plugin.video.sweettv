@@ -10,15 +10,16 @@ PRs are welcome
 
 
 # Installation:
-Download the repository as ZIP, open the ZIP and rename the top directory from plugin.video.sweettv-main to plugin.video.sweettv and install the ZIP file in Kodi.
+Download the newest release ZIP from [here](https://github.com/david-hazi/plugin.video.sweettv/releases)
+
+OR download the repository as ZIP, open the ZIP and rename the top directory from *plugin.video.sweettv-main* to *plugin.video.sweettv* and install the ZIP file in Kodi.
 
 **Generating M3U playlist and EPG**
 
 Go to Sweet tv addon settings
 
 1. On the M3U list creator page set the file names and location
-2. 
-3. Click on Create M3U and EPG list
+2. Click on Create M3U and EPG list
 
 **Sample config for IPTV Simple Client**
 
