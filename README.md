@@ -44,6 +44,9 @@ Go to Sweet tv addon settings
 * 1. Go to Add-on settings and set the m3u playlist location on the General page.
      
 * 2. Set the EPG location (EPG -> XMLTV path).
+
+* 3. (optional) Enable Catchup on the Catchup page.
+A green dot will appear in the TV timeline for the programs with catchup option.
      
 
 # If you encounter any issues, please open a [ticket](https://github.com/david-hazi/plugin.video.sweettv/issues/new)

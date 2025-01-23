@@ -72,12 +72,21 @@ def channelList():
             for json_channel in jsdata.get("list"):
                 if "epg" in json_channel:
                     for json_epg in json_channel.get("epg"):
-                        programme = ET.SubElement(xml_root, "programme", attrib={
+                        if json_channel.get("catchup") and json_channel.get("available"):
+                            catchup = {"catchup-id": str(json_epg.get("id"))}
+                        else:
+                            catchup = {"catchup-id": "null"}
+
+                        programme_metadata = {
                             "start": time.strftime('%Y%m%d%H%M%S',
                                                    time.localtime(json_epg.get("time_start"))) + " +0100",
                             "stop": time.strftime('%Y%m%d%H%M%S',
                                                   time.localtime(json_epg.get("time_stop") - 1)) + " +0100",
-                            "channel": str(json_channel.get("id")) + ".id.com"})
+                            "channel": str(json_channel.get("id")) + ".id.com"
+                        }
+                        programme_metadata.update(catchup)
+
+                        programme = ET.SubElement(xml_root, "programme", attrib=programme_metadata)
                         if json_epg.get("available") == False and json_channel.get("live_blackout") == True:
                             ET.SubElement(programme, "title",
                                           lang=helper.countryCode).text = "!NOT AVAILABLE! " + json_epg.get(
@@ -108,8 +117,12 @@ def channelList():
                     img = json_channel.get('icon_v2_url', None)
                     cName = json_channel.get('name', None)
                     cid = json_channel.get('id', None)
-                    data += '#EXTINF:0 tvg-id="%s.id.com" tvg-name="%s" tvg-logo="%s" group-title="Sweet.tv" ,%s\nplugin://plugin.video.sweettv/playvid/%s|null\n' % (
-                        cid, cName, img, cName, cid)
+                    if json_channel.get('catchup', None):
+                        catchup = 'catchup="default" catchup-days="%d" catchup-source="plugin://plugin.video.sweettv/playvid/%s|{catchup-id}"' % (int(json_channel.get('catchup_duration')), cid)
+                    else:
+                        catchup = ''
+                    data += '#EXTINF:0 tvg-id="%s.id.com" tvg-name="%s" tvg-logo="%s" group-title="Sweet.tv" %s,%s\nplugin://plugin.video.sweettv/playvid/%s|null\n' % (
+                        cid, cName, img, catchup, cName, cid)
 
             file_name = helper.get_setting('name_m3u')
             if path_m3u != '' and file_name != '':
@@ -443,27 +456,8 @@ def listM3U():
                                           xbmcgui.NOTIFICATION_ERROR)
             return
         xbmcgui.Dialog().notification('Sweet tv', 'Generating M3U list.', xbmcgui.NOTIFICATION_INFO)
-        data = '#EXTM3U\n'
         channels = channelList()
-        if channels.get("code", None) == 16:
-            helper.set_setting('bearer', '')
-            refr = refreshToken()
-            if refr:
-                channels = channelList()
-            else:
-                return
-        if 'list' in channels:
-            for c in channels['list']:
-                if c.get('available', None):
-                    img = c.get('icon_v2_url', None)
-                    cName = c.get('name', None)
-                    cid = c.get('id', None)
-                    data += '#EXTINF:0 tvg-id="%s.id.com" tvg-name="%s" tvg-logo="%s" group-title="Sweet.tv" ,%s\nplugin://plugin.video.sweettv/playvid/%s|null\n' % (
-                        cid, cName, img, cName, cid)
-
-            f = xbmcvfs.File(path_m3u + file_name, 'w')
-            f.write(data)
-            f.close()
+        if channels.get("status", None) == 'OK':
             xbmcgui.Dialog().notification('Sweet.tv', 'M3U list generated.', xbmcgui.NOTIFICATION_INFO)
     else:
         xbmcgui.Dialog().notification('Sweet.tv', 'Log in to the plugin.', xbmcgui.NOTIFICATION_INFO)
