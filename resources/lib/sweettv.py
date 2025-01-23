@@ -52,7 +52,7 @@ def channelList():
         'epg_current_time': timestamp,
         'need_epg': True,
         'need_list': True,
-        'need_categories': False,
+        'need_categories': True,
         'need_offsets': False,
         'need_hash': False,
         'need_icons': False,
@@ -62,7 +62,13 @@ def channelList():
     url = helper.base_api_url.format('TvService/GetChannels.json')
     jsdata = helper.request_sess(url, 'post', headers=helper.headers, data=json_data, json=True, json_data=True)
 
+    categories = {}
+
     if jsdata.get("status", None) == 'OK':
+        if "categories" in jsdata:
+            for category in jsdata.get('categories', None):
+                categories.update({category.get('id', None): category.get('caption', None)})
+
         if "list" in jsdata:
             xml_root = ET.Element("tv")
             for json_channel in jsdata.get("list"):
@@ -117,12 +123,18 @@ def channelList():
                     img = json_channel.get('icon_v2_url', None)
                     cName = json_channel.get('name', None)
                     cid = json_channel.get('id', None)
+                    category_list = ''
+                    for category in json_channel.get('category', None):
+                        if category in categories and category != 1000:
+                            category_list += categories[category] + ';'
+                    category_list = category_list[:-1]
+
                     if json_channel.get('catchup', None):
                         catchup = 'catchup="default" catchup-days="%d" catchup-source="plugin://plugin.video.sweettv/playvid/%s|{catchup-id}"' % (int(json_channel.get('catchup_duration')), cid)
                     else:
                         catchup = ''
-                    data += '#EXTINF:0 tvg-id="%s.id.com" tvg-name="%s" tvg-logo="%s" group-title="Sweet.tv" %s,%s\nplugin://plugin.video.sweettv/playvid/%s|null\n' % (
-                        cid, cName, img, catchup, cName, cid)
+                    data += '#EXTINF:0 tvg-id="%s.id.com" tvg-name="%s" tvg-logo="%s" group-title="%s" %s,%s\nplugin://plugin.video.sweettv/playvid/%s|null\n' % (
+                        cid, cName, img, category_list, catchup, cName, cid)
 
             file_name = helper.get_setting('name_m3u')
             if path_m3u != '' and file_name != '':
