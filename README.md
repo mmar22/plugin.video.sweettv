@@ -10,7 +10,7 @@ PRs are welcome
 
 
 # Installation:
-Download the newest release ZIP from [here](https://github.com/david-hazi/plugin.video.sweettv/releases)
+Download the newest release ZIP from [here](https://github.com/david-hazi/plugin.video.sweettv/releases/latest)
 
 OR download the repository as ZIP, open the ZIP and rename the top directory from *plugin.video.sweettv-main* to *plugin.video.sweettv* and install the ZIP file in Kodi.
 
