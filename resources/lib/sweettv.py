@@ -10,6 +10,7 @@ import xbmc
 import xbmcgui
 import xbmcplugin
 import xbmcvfs
+from six.moves.urllib.parse import urlencode
 
 urllib3.disable_warnings()
 
@@ -25,14 +26,9 @@ plugin = routing.Plugin()
 
 try:
     # Python 3
-    from urllib.parse import quote_plus, unquote_plus, quote, unquote, parse_qsl, urlencode
-
     to_unicode = str
 except:
     # Python 2.7
-    from urllib import quote_plus, unquote_plus, quote, unquote, urlencode
-    from urlparse import parse_qsl
-
     to_unicode = unicode
 
 
@@ -330,6 +326,9 @@ def settings():
 def logout():
     log_out = helper.dialog_choice('Logout', 'Do you want to log out?', agree='Yes', disagree='No')
     if log_out:
+        json_data = {"refresh_token": helper.get_setting('refresh_token')}
+        helper.request_sess(helper.logout_url, 'post', headers=helper.headers, data=json_data, json=True,
+                            json_data=True)
         helper.set_setting('bearer', '')
         helper.set_setting('logged', 'false')
         helper.refresh()
@@ -347,7 +346,7 @@ def login():
     dialog = xbmcgui.Dialog()
     # show loading dialog
     pDialog = xbmcgui.DialogProgress()
-    pDialog.create('Sweet.tv', f"Enter code: {auth_code}")
+    pDialog.create('Sweet.tv', "Enter code: {}".format(auth_code))
     # wait for user to enter code
     jsdata = {"auth_code": auth_code}
     from json import dumps

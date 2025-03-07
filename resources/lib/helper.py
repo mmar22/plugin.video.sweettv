@@ -1,5 +1,7 @@
+import os
 import sys
-from urllib.parse import quote
+import uuid
+from six.moves.urllib.parse import quote
 
 import requests
 import xbmc
@@ -9,6 +11,11 @@ import xbmcplugin
 
 from resources.lib.brotlipython import brotlidec
 
+try:
+    # Python 3
+    to_unicode = str
+except:
+    to_unicode = unicode
 
 def resp_text(resp):
     """Return decoded response text."""
@@ -39,10 +46,11 @@ class Helper:
         self.base_api_url = 'https://api.sweet.tv/{}'
 
         self.auth_url = self.base_api_url.format('SigninService/Start.json')
+        self.logout_url = self.base_api_url.format('SigninService/Logout.json')
         self.check_auth_url = self.base_api_url.format('SigninService/GetStatus.json')
         self.token_url = self.base_api_url.format('AuthenticationService/Token.json')
         self.UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
-        self.version = '6.4.96'
+        self.version = '3.7.1'
         self.params = {}
 
         self.uuid = self.get_setting('uuid')
@@ -66,25 +74,27 @@ class Helper:
 
         self.json_data = {
             "device": {
-                "type": "DT_SmartTV",
-                "sub_type": "DST_WINDOWS",
-                "application": {
-                    "type": "AT_SWEET_TV_Player"
-                },
-                "model": self.UA,
+                "type": "DT_AndroidTV",
+                "mac": self.get_random_mac(),
                 "firmware": {
-                    "versionCode": 1,
+                    "versionCode": 1301,
                     "versionString": self.version
                 },
+                "sub_type": 0,
+                "model": "SweetClient",
                 "uuid": self.uuid,
-                "supported_drm": {
-                    "widevine_modular": True
-                },
                 "screen_info": {
                     "aspectRatio": 6,
                     "width": 1920,
                     "height": 1080
-                }
+                },
+                "application": {
+                    "type": "AT_SWEET_TV_Player"
+                },
+                "supported_drm": {
+                    "widevine_modular": True
+                },
+                "advertisingId": to_unicode(uuid.uuid4())
             }
         }
 
@@ -134,6 +144,9 @@ class Helper:
         if contextmenu:
             list_item.addContextMenuItems(contextmenu, replaceItems=True)
         xbmcplugin.addDirectoryItem(self.handle, url, list_item, isFolder=folder)
+
+    def get_random_mac(self):
+        return ':'.join(['%02x' % x for x in os.urandom(6)])
 
     def eod(self, cache=True):
         xbmcplugin.endOfDirectory(self.handle, cacheToDisc=cache)
