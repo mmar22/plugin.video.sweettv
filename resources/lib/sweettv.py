@@ -5,12 +5,12 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 
 import routing
+import six
 import urllib3
 import xbmc
 import xbmcgui
 import xbmcplugin
 import xbmcvfs
-import six
 from six.moves.urllib.parse import urlencode
 
 urllib3.disable_warnings()
@@ -27,6 +27,7 @@ plugin = routing.Plugin()
 
 
 def getTime(x, y):
+    data = ''
     if y == 'date':
         data = '%Y-%m-%d'
     elif y == 'hour':

@@ -3,11 +3,11 @@ import sys
 import uuid
 
 import requests
+import six
 import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
-import six
 from six.moves.urllib.parse import quote
 
 from resources.lib.brotlipython import brotlidec
@@ -142,7 +142,7 @@ class Helper(object):
         xbmcplugin.addDirectoryItem(self.handle, url, list_item, isFolder=folder)
 
     def get_random_mac(self):
-        return ':'.join('%02x' % random.randint(0,255) for x in range(6))
+        return ':'.join('%02x' % random.randint(0, 255) for x in range(6))
 
     def eod(self, cache=True):
         xbmcplugin.endOfDirectory(self.handle, cacheToDisc=cache)
