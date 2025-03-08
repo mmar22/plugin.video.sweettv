@@ -10,7 +10,7 @@ import xbmc
 import xbmcgui
 import xbmcplugin
 import xbmcvfs
-from six import text_type
+import six
 from six.moves.urllib.parse import urlencode
 
 urllib3.disable_warnings()
@@ -63,14 +63,14 @@ def channelList():
             xml_root = ET.Element("tv")
             for json_channel in jsdata.get("list"):
                 channel = ET.SubElement(xml_root, "channel",
-                                        attrib={"id": text_type(json_channel.get("id")) + ".id.com"})
+                                        attrib={"id": six.text_type(json_channel.get("id")) + ".id.com"})
                 ET.SubElement(channel, "display-name", lang=helper.countryCode).text = json_channel.get("name")
                 ET.SubElement(channel, "icon", src=json_channel.get("icon_url"))
             for json_channel in jsdata.get("list"):
                 if "epg" in json_channel:
                     for json_epg in json_channel.get("epg"):
                         if json_channel.get("catchup") and json_channel.get("available"):
-                            catchup = {"catchup-id": text_type(json_epg.get("id"))}
+                            catchup = {"catchup-id": six.text_type(json_epg.get("id"))}
                         else:
                             catchup = {"catchup-id": "null"}
 
@@ -79,7 +79,7 @@ def channelList():
                                                    time.localtime(json_epg.get("time_start"))) + " +0100",
                             "stop": time.strftime('%Y%m%d%H%M%S',
                                                   time.localtime(json_epg.get("time_stop") - 1)) + " +0100",
-                            "channel": text_type(json_channel.get("id")) + ".id.com"
+                            "channel": six.text_type(json_channel.get("id")) + ".id.com"
                         }
                         programme_metadata.update(catchup)
 
@@ -94,7 +94,7 @@ def channelList():
                     programme = ET.SubElement(xml_root, "programme", attrib={
                         "start": time.strftime('%Y%m%d%H%M%S', time.localtime(time.time())) + " +0100",
                         "stop": time.strftime('%Y%m%d%H%M%S', time.localtime(time.time() + (12 * 60 * 60))) + " +0100",
-                        "channel": text_type(json_channel.get("id")) + ".id.com"})
+                        "channel": six.text_type(json_channel.get("id")) + ".id.com"})
                     ET.SubElement(programme, "title", lang=helper.countryCode).text = json_channel.get("name")
 
             tree = ET.ElementTree(xml_root)
@@ -135,7 +135,7 @@ def channelList():
                 f.close()
     else:
         xbmc.log("Failed to update channel list", xbmc.LOGERROR)
-        xbmc.log("Failed to update channel list " + text_type(jsdata), xbmc.LOGDEBUG)
+        xbmc.log("Failed to update channel list " + six.text_type(jsdata), xbmc.LOGDEBUG)
 
     return jsdata
 
@@ -147,7 +147,7 @@ def root():
     refresh_token = helper.get_setting('refresh_token')
 
     xbmc.log("refresh " + refresh_token, xbmc.LOGDEBUG)
-    xbmc.log("logged " + text_type(helper.get_setting('logged')), xbmc.LOGDEBUG)
+    xbmc.log("logged " + six.text_type(helper.get_setting('logged')), xbmc.LOGDEBUG)
 
     if refresh_token == 'None':
         helper.set_setting('bearer', '')
@@ -166,7 +166,7 @@ def CreateDatas():
     if not helper.uuid:
         import uuid
         uuidx = uuid.uuid4()
-        helper.set_setting('uuid', text_type(uuidx))
+        helper.set_setting('uuid', six.text_type(uuidx))
     return
 
 
@@ -183,12 +183,12 @@ def refreshToken():
 
     jsdata = helper.request_sess(helper.token_url, 'post', headers=helper.headers, data=json_data, json=True,
                                  json_data=True)
-    xbmc.log("refresh " + text_type(jsdata), xbmc.LOGDEBUG)
+    xbmc.log("refresh " + six.text_type(jsdata), xbmc.LOGDEBUG)
 
     if jsdata.get("result", None) == 'COMPLETED' or jsdata.get("result", None) == 'OK':
         xbmc.log("Token refresh success", xbmc.LOGDEBUG)
         access_token = jsdata.get("access_token")
-        helper.set_setting('bearer', 'Bearer ' + text_type(access_token))
+        helper.set_setting('bearer', 'Bearer ' + six.text_type(access_token))
         helper.headers.update({'authorization': helper.get_setting('bearer')})
 
         channelList()
@@ -230,7 +230,7 @@ def getEPG(id):
             now = int(time.time())
             tStart = p.get('time_start', None)
             if p['available'] == True and tStart >= now - int(dur) * 24 * 60 * 60 and tStart <= now:
-                pid = text_type(p.get('id', None))
+                pid = six.text_type(p.get('id', None))
                 tit = p.get('text', None)
                 date = getTime(p.get('time_start', None), 'date')
                 ts = getTime(p.get('time_start', None), 'hour')
@@ -271,7 +271,7 @@ def mainpage(id):
             if (id == 'replay' and catchup and available) or (id == 'live' and available):
                 isShow = True
             if isShow:
-                _id = text_type(j.get('id', None))
+                _id = six.text_type(j.get('id', None))
                 title = j.get('name', None)
                 slug = j.get('slug', None)
                 epgs = j.get('epg', None)
@@ -290,7 +290,7 @@ def mainpage(id):
                     fold = False
                     ispla = True
                 else:  # id=='replay'
-                    dur = text_type(j.get('catchup_duration', None))
+                    dur = six.text_type(j.get('catchup_duration', None))
                     idx = _id + '|' + dur
                     mod = plugin.url_for(getEPG, id=idx)
                     fold = True
@@ -358,7 +358,7 @@ def login():
             return
         jsdata = helper.request_sess(helper.check_auth_url, 'post', headers=headers, data=json_data, json=True,
                                      json_data=False)
-        sys.stderr.write(text_type(jsdata))
+        sys.stderr.write(six.text_type(jsdata))
         if jsdata.get("result") == "COMPLETED":
             result = jsdata
         else:
@@ -368,8 +368,8 @@ def login():
 
         access_token = result.get("access_token")
         refresh_token = result.get("refresh_token")
-        helper.set_setting('bearer', 'Bearer ' + text_type(access_token))
-        helper.set_setting('refresh_token', text_type(refresh_token))
+        helper.set_setting('bearer', 'Bearer ' + six.text_type(access_token))
+        helper.set_setting('refresh_token', six.text_type(refresh_token))
         helper.set_setting('logged', 'true')
 
     else:

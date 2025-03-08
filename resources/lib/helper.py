@@ -1,4 +1,4 @@
-import os
+import random
 import sys
 import uuid
 
@@ -7,7 +7,7 @@ import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
-from six import text_type
+import six
 from six.moves.urllib.parse import quote
 
 from resources.lib.brotlipython import brotlidec
@@ -24,7 +24,7 @@ def resp_text(resp):
     return response_content.replace("\'", '"')
 
 
-class Helper:
+class Helper(object):
     def __init__(self, base_url=None, handle=None):
         self.base_url = base_url
         self.handle = handle
@@ -90,7 +90,7 @@ class Helper:
                 "supported_drm": {
                     "widevine_modular": True
                 },
-                "advertisingId": text_type(uuid.uuid4())
+                "advertisingId": six.text_type(uuid.uuid4())
             }
         }
 
@@ -142,7 +142,7 @@ class Helper:
         xbmcplugin.addDirectoryItem(self.handle, url, list_item, isFolder=folder)
 
     def get_random_mac(self):
-        return ':'.join(['%02x' % x for x in os.urandom(6)])
+        return ':'.join('%02x' % random.randint(0,255) for x in range(6))
 
     def eod(self, cache=True):
         xbmcplugin.endOfDirectory(self.handle, cacheToDisc=cache)
