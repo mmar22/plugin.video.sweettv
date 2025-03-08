@@ -25,6 +25,7 @@ except:
 helper = Helper(base_url, handle)
 plugin = routing.Plugin()
 
+
 def getTime(x, y):
     if y == 'date':
         data = '%Y-%m-%d'
@@ -61,7 +62,8 @@ def channelList():
         if "list" in jsdata:
             xml_root = ET.Element("tv")
             for json_channel in jsdata.get("list"):
-                channel = ET.SubElement(xml_root, "channel", attrib={"id": text_type(json_channel.get("id")) + ".id.com"})
+                channel = ET.SubElement(xml_root, "channel",
+                                        attrib={"id": text_type(json_channel.get("id")) + ".id.com"})
                 ET.SubElement(channel, "display-name", lang=helper.countryCode).text = json_channel.get("name")
                 ET.SubElement(channel, "icon", src=json_channel.get("icon_url"))
             for json_channel in jsdata.get("list"):
@@ -119,7 +121,8 @@ def channelList():
                     category_list = category_list[:-1]
 
                     if json_channel.get('catchup', None):
-                        catchup = 'catchup="default" catchup-days="%d" catchup-source="plugin://plugin.video.sweettv/playvid/%s|{catchup-id}"' % (int(json_channel.get('catchup_duration')), cid)
+                        catchup = 'catchup="default" catchup-days="%d" catchup-source="plugin://plugin.video.sweettv/playvid/%s|{catchup-id}"' % (
+                        int(json_channel.get('catchup_duration')), cid)
                     else:
                         catchup = ''
                     data += '#EXTINF:0 tvg-id="%s.id.com" tvg-name="%s" tvg-logo="%s" group-title="%s" %s,%s\nplugin://plugin.video.sweettv/playvid/%s|null\n' % (

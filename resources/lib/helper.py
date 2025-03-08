@@ -12,6 +12,7 @@ import xbmcplugin
 
 from resources.lib.brotlipython import brotlidec
 
+
 def resp_text(resp):
     """Return decoded response text."""
     if resp and resp.headers.get('content-encoding') == 'br':
