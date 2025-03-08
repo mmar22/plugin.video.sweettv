@@ -5,7 +5,6 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 
 import routing
-import six
 import urllib3
 import xbmc
 import xbmcgui
@@ -64,14 +63,14 @@ def channelList():
             xml_root = ET.Element("tv")
             for json_channel in jsdata.get("list"):
                 channel = ET.SubElement(xml_root, "channel",
-                                        attrib={"id": six.text_type(json_channel.get("id")) + ".id.com"})
+                                        attrib={"id": str(json_channel.get("id")) + ".id.com"})
                 ET.SubElement(channel, "display-name", lang=helper.countryCode).text = json_channel.get("name")
                 ET.SubElement(channel, "icon", src=json_channel.get("icon_url"))
             for json_channel in jsdata.get("list"):
                 if "epg" in json_channel:
                     for json_epg in json_channel.get("epg"):
                         if json_channel.get("catchup") and json_channel.get("available"):
-                            catchup = {"catchup-id": six.text_type(json_epg.get("id"))}
+                            catchup = {"catchup-id": str(json_epg.get("id"))}
                         else:
                             catchup = {"catchup-id": "null"}
 
@@ -80,7 +79,7 @@ def channelList():
                                                    time.localtime(json_epg.get("time_start"))) + " +0100",
                             "stop": time.strftime('%Y%m%d%H%M%S',
                                                   time.localtime(json_epg.get("time_stop") - 1)) + " +0100",
-                            "channel": six.text_type(json_channel.get("id")) + ".id.com"
+                            "channel": str(json_channel.get("id")) + ".id.com"
                         }
                         programme_metadata.update(catchup)
 
@@ -95,13 +94,13 @@ def channelList():
                     programme = ET.SubElement(xml_root, "programme", attrib={
                         "start": time.strftime('%Y%m%d%H%M%S', time.localtime(time.time())) + " +0100",
                         "stop": time.strftime('%Y%m%d%H%M%S', time.localtime(time.time() + (12 * 60 * 60))) + " +0100",
-                        "channel": six.text_type(json_channel.get("id")) + ".id.com"})
+                        "channel": str(json_channel.get("id")) + ".id.com"})
                     ET.SubElement(programme, "title", lang=helper.countryCode).text = json_channel.get("name")
 
             tree = ET.ElementTree(xml_root)
             if sys.version_info[:3] >= (3, 9, 0):
                 ET.indent(tree, space="  ", level=0)
-            xmlstr = ET.tostring(xml_root, encoding='utf-8', xml_declaration=True)
+            xmlstr = '<?xml version="1.0" encoding="utf-8"?>\n'.encode("utf-8") + ET.tostring(xml_root, encoding='utf-8')
             path_m3u = helper.get_setting('path_m3u')
             file_name = helper.get_setting('name_epg')
             if path_m3u != '' and file_name != '':
@@ -136,7 +135,7 @@ def channelList():
                 f.close()
     else:
         xbmc.log("Failed to update channel list", xbmc.LOGERROR)
-        xbmc.log("Failed to update channel list " + six.text_type(jsdata), xbmc.LOGDEBUG)
+        xbmc.log("Failed to update channel list " + str(jsdata), xbmc.LOGDEBUG)
 
     return jsdata
 
@@ -148,7 +147,7 @@ def root():
     refresh_token = helper.get_setting('refresh_token')
 
     xbmc.log("refresh " + refresh_token, xbmc.LOGDEBUG)
-    xbmc.log("logged " + six.text_type(helper.get_setting('logged')), xbmc.LOGDEBUG)
+    xbmc.log("logged " + str(helper.get_setting('logged')), xbmc.LOGDEBUG)
 
     if refresh_token == 'None':
         helper.set_setting('bearer', '')
@@ -167,14 +166,16 @@ def CreateDatas():
     if not helper.uuid:
         import uuid
         uuidx = uuid.uuid4()
-        helper.set_setting('uuid', six.text_type(uuidx))
+        helper.set_setting('uuid', str(uuidx))
+    if not helper.mac:
+        helper.set_setting('mac', helper.get_random_mac())
     return
 
 
 @plugin.route('/startwt')
 def startwt():
-    helper.add_item('[B]TV[/B]', plugin.url_for(mainpage, id='live'), folder=True)
-    helper.add_item('[B]Replay[/B]', plugin.url_for(mainpage, id='replay'), folder=True)
+    helper.add_item('[B]TV[/B]', plugin.url_for(mainpage, mainid='live'), folder=True)
+    helper.add_item('[B]Replay[/B]', plugin.url_for(mainpage, mainid='replay'), folder=True)
     helper.add_item('[B]Logout[/B]', plugin.url_for(logout), folder=False)
 
 
@@ -184,12 +185,14 @@ def refreshToken():
 
     jsdata = helper.request_sess(helper.token_url, 'post', headers=helper.headers, data=json_data, json=True,
                                  json_data=True)
-    xbmc.log("refresh " + six.text_type(jsdata), xbmc.LOGDEBUG)
+
+    xbmc.log("refresh " + str(json_data), xbmc.LOGERROR)
+    xbmc.log("refresh " + str(jsdata), xbmc.LOGERROR)
 
     if jsdata.get("result", None) == 'COMPLETED' or jsdata.get("result", None) == 'OK':
         xbmc.log("Token refresh success", xbmc.LOGDEBUG)
         access_token = jsdata.get("access_token")
-        helper.set_setting('bearer', 'Bearer ' + six.text_type(access_token))
+        helper.set_setting('bearer', 'Bearer ' + str(access_token))
         helper.headers.update({'authorization': helper.get_setting('bearer')})
 
         channelList()
@@ -199,13 +202,13 @@ def refreshToken():
         return False
 
 
-@plugin.route('/getEPG/<id>')
-def getEPG(id):
-    id, dur = id.split('|')
+@plugin.route('/getEPG/<epgid>')
+def getEPG(epgid):
+    epgid, dur = epgid.split('|')
     timestamp = int(time.time())
     json_data = {
         "channels": [
-            int(id)
+            int(epgid)
         ],
         "epg_current_time": timestamp,
         "need_big_icons": False,
@@ -222,7 +225,7 @@ def getEPG(id):
         helper.set_setting('bearer', '')
         refr = refreshToken()
         if refr:
-            mainpage(id)
+            mainpage(epgid)
         else:
             return
     if jsdata.get("status", None) == 'OK':
@@ -231,15 +234,15 @@ def getEPG(id):
             now = int(time.time())
             tStart = p.get('time_start', None)
             if p['available'] == True and tStart >= now - int(dur) * 24 * 60 * 60 and tStart <= now:
-                pid = six.text_type(p.get('id', None))
+                pid = str(p.get('id', None))
                 tit = p.get('text', None)
                 date = getTime(p.get('time_start', None), 'date')
                 ts = getTime(p.get('time_start', None), 'hour')
                 te = getTime(p.get('time_stop', None), 'hour')
                 title = '[COLOR=gold]%s[/COLOR] | [B]%s-%s[/B] %s' % (date, ts, te, tit)
-                ID = id + '|' + pid
+                ID = epgid + '|' + pid
 
-                mod = plugin.url_for(playvid, id=ID)
+                mod = plugin.url_for(playvid, videoid=ID)
                 fold = False
                 ispla = True
                 imag = p.get('preview_url', None)
@@ -252,15 +255,15 @@ def getEPG(id):
     helper.eod()
 
 
-@plugin.route('/mainpage/<id>')
-def mainpage(id):
+@plugin.route('/mainpage/<mainid>')
+def mainpage(mainid):
     jsdata = channelList()
 
     if jsdata.get("code", None) == 16:
         helper.set_setting('bearer', '')
         refr = refreshToken()
         if refr:
-            mainpage(id)
+            mainpage(mainid)
         else:
             return
 
@@ -269,15 +272,15 @@ def mainpage(id):
             catchup = j.get('catchup', None)
             available = j.get('available', None)
             isShow = False
-            if (id == 'replay' and catchup and available) or (id == 'live' and available):
+            if (mainid == 'replay' and catchup and available) or (mainid == 'live' and available):
                 isShow = True
             if isShow:
-                _id = six.text_type(j.get('id', None))
+                _id = str(j.get('id', None))
                 title = j.get('name', None)
                 slug = j.get('slug', None)
                 epgs = j.get('epg', None)
                 epg = ''
-                if id == 'live' and epgs:
+                if mainid == 'live' and epgs:
                     for e in epgs:
                         if e.get('time_stop', None) > int(time.time()):
                             tit = e.get('text', None)
@@ -285,15 +288,15 @@ def mainpage(id):
                             te = getTime(e.get('time_stop', None), 'hour')
                             epg += '[B]%s-%s[/B] %s\n' % (ts, te, tit)
 
-                if id == 'live':
+                if mainid == 'live':
                     idx = _id + '|null'  # +slug
-                    mod = plugin.url_for(playvid, id=idx)
+                    mod = plugin.url_for(playvid, videoid=idx)
                     fold = False
                     ispla = True
                 else:  # id=='replay'
-                    dur = six.text_type(j.get('catchup_duration', None))
+                    dur = str(j.get('catchup_duration', None))
                     idx = _id + '|' + dur
-                    mod = plugin.url_for(getEPG, id=idx)
+                    mod = plugin.url_for(getEPG, epgid=idx)
                     fold = True
                     ispla = False
 
@@ -301,7 +304,6 @@ def mainpage(id):
                 art = {'icon': imag, 'fanart': helper.addon.getAddonInfo('fanart')}
 
                 info = {'title': title, 'plot': epg}
-
                 helper.add_item('[COLOR gold][B]' + title + '[/COLOR][/B]', mod, playable=ispla, info=info, art=art,
                                 folder=fold)
 
@@ -359,7 +361,7 @@ def login():
             return
         jsdata = helper.request_sess(helper.check_auth_url, 'post', headers=headers, data=json_data, json=True,
                                      json_data=False)
-        sys.stderr.write(six.text_type(jsdata))
+        xbmc.log("login " + str(jsdata), xbmc.LOGERROR)
         if jsdata.get("result") == "COMPLETED":
             result = jsdata
         else:
@@ -369,8 +371,8 @@ def login():
 
         access_token = result.get("access_token")
         refresh_token = result.get("refresh_token")
-        helper.set_setting('bearer', 'Bearer ' + six.text_type(access_token))
-        helper.set_setting('refresh_token', six.text_type(refresh_token))
+        helper.set_setting('bearer', 'Bearer ' + str(access_token))
+        helper.set_setting('refresh_token', str(refresh_token))
         helper.set_setting('logged', 'true')
 
     else:
@@ -383,8 +385,8 @@ def login():
     helper.refresh()
 
 
-@plugin.route('/playvid/<id>')
-def playvid(id):
+@plugin.route('/playvid/<videoid>')
+def playvid(videoid):
     DRM = None
     lic_url = None
     PROTOCOL = 'mpd'
@@ -394,7 +396,7 @@ def playvid(id):
         xbmcgui.Dialog().notification('Sweet.tv', 'Log in to the plugin', xbmcgui.NOTIFICATION_INFO)
         xbmcplugin.setResolvedUrl(helper.handle, False, xbmcgui.ListItem())
     else:
-        idx, pid = id.split('|')
+        idx, pid = videoid.split('|')
         json_data = {
             'without_auth': True,
             'channel_id': int(idx),
@@ -413,7 +415,7 @@ def playvid(id):
             helper.set_setting('bearer', '')
             refr = refreshToken()
             if refr:
-                playvid(id)
+                playvid(videoid)
             else:
                 return
 
@@ -447,10 +449,12 @@ def playvid(id):
                 PROTOCOL = 'hls'
                 subs = None
 
+            xbmc.log("playvid2 " + stream_url, xbmc.LOGERROR)
+
             if helper.get_setting('playerType') == 'ffmpeg' and DRM is None:
                 helper.ffmpeg_player(stream_url)
             else:
-                helper.PlayVid(stream_url, lic_url, PROTOCOL, DRM, flags=False, subs=subs, vod=vod)
+                helper.playstream(stream_url, lic_url, PROTOCOL, DRM, flags=False, subs=subs, vod=vod)
 
 
 @plugin.route('/listM3U')

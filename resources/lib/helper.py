@@ -3,7 +3,6 @@ import sys
 import uuid
 
 import requests
-import six
 import xbmc
 import xbmcaddon
 import xbmcgui
@@ -54,6 +53,7 @@ class Helper(object):
         self.refresh_token = self.get_setting('refresh_token')
         self.logged = self.get_setting('logged')
         self.countryCode = self.get_setting('countryCode')
+        self.mac = self.get_setting('mac')
 
         self.headers = {
             'Host': 'api.sweet.tv',
@@ -71,7 +71,7 @@ class Helper(object):
         self.json_data = {
             "device": {
                 "type": "DT_AndroidTV",
-                "mac": self.get_random_mac(),
+                "mac": self.mac,
                 "firmware": {
                     "versionCode": 1301,
                     "versionString": self.version
@@ -90,7 +90,7 @@ class Helper(object):
                 "supported_drm": {
                     "widevine_modular": True
                 },
-                "advertisingId": six.text_type(uuid.uuid4())
+                "advertisingId": str(uuid.uuid4())
             }
         }
 
@@ -184,7 +184,7 @@ class Helper(object):
         else:
             return resp
 
-    def PlayVid(self, mpdurl, lic_url='', PROTOCOL='', DRM='', certificate='', flags=True, subs=None, vod=False):
+    def playstream(self, mpdurl, lic_url='', PROTOCOL='', DRM='', certificate='', flags=True, subs=None, vod=False):
         from inputstreamhelper import Helper
         play_item = xbmcgui.ListItem(path=mpdurl)
         if subs:
