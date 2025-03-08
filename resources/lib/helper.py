@@ -2,6 +2,7 @@ import os
 import sys
 import uuid
 from six.moves.urllib.parse import quote
+from six import text_type
 
 import requests
 import xbmc
@@ -10,12 +11,6 @@ import xbmcgui
 import xbmcplugin
 
 from resources.lib.brotlipython import brotlidec
-
-try:
-    # Python 3
-    to_unicode = str
-except:
-    to_unicode = unicode
 
 def resp_text(resp):
     """Return decoded response text."""
@@ -94,7 +89,7 @@ class Helper:
                 "supported_drm": {
                     "widevine_modular": True
                 },
-                "advertisingId": to_unicode(uuid.uuid4())
+                "advertisingId": text_type(uuid.uuid4())
             }
         }
 
