@@ -10,8 +10,8 @@ import xbmc
 import xbmcgui
 import xbmcplugin
 import xbmcvfs
-from six.moves.urllib.parse import urlencode
 from six import text_type
+from six.moves.urllib.parse import urlencode
 
 urllib3.disable_warnings()
 
@@ -122,7 +122,7 @@ def channelList():
 
                     if json_channel.get('catchup', None):
                         catchup = 'catchup="default" catchup-days="%d" catchup-source="plugin://plugin.video.sweettv/playvid/%s|{catchup-id}"' % (
-                        int(json_channel.get('catchup_duration')), cid)
+                            int(json_channel.get('catchup_duration')), cid)
                     else:
                         catchup = ''
                     data += '#EXTINF:0 tvg-id="%s.id.com" tvg-name="%s" tvg-logo="%s" group-title="%s" %s,%s\nplugin://plugin.video.sweettv/playvid/%s|null\n' % (
@@ -348,10 +348,9 @@ def login():
     from json import dumps
     json_data = dumps(jsdata, separators=(',', ':'))
     result = None
-    headers = {
-        **helper.headers,
-        'Content-Type': 'application/json',
-    }
+    headers = helper.headers
+    headers.update({'Content-Type': 'application/json'})
+
     while not result:
         if pDialog.iscanceled():
             helper.notification('Information', 'Login interrupted')
@@ -472,5 +471,5 @@ def listM3U():
 
 class SweetTV(Helper):
     def __init__(self):
-        super().__init__()
+        super(SweetTV, self).__init__()
         plugin.run()

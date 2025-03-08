@@ -1,14 +1,14 @@
 import os
 import sys
 import uuid
-from six.moves.urllib.parse import quote
-from six import text_type
 
 import requests
 import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
+from six import text_type
+from six.moves.urllib.parse import quote
 
 from resources.lib.brotlipython import brotlidec
 
@@ -153,8 +153,18 @@ class Helper:
     def notification(self, heading, message):
         xbmcgui.Dialog().notification(heading, message, time=3000)
 
-    def request_sess(self, url, method='get', data={}, headers={}, cookies={}, params={}, result=True, json=False,
+    def request_sess(self, url, method='get', data=None, headers=None, cookies=None, params=None, result=True,
+                     json=False,
                      allow=True, json_data=False):
+        if params is None:
+            params = {}
+        if cookies is None:
+            cookies = {}
+        if headers is None:
+            headers = {}
+        if data is None:
+            data = {}
+        resp = None
         params = params if params else self.params
         if method == 'get':
             resp = self.sess.get(url, headers=headers, cookies=cookies, timeout=30, params=params, verify=False,
