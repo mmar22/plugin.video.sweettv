@@ -77,7 +77,6 @@ class Helper(object):
                     "versionString": self.version
                 },
                 "sub_type": 0,
-                "model": "SweetClient",
                 "uuid": self.uuid,
                 "screen_info": {
                     "aspectRatio": 6,
