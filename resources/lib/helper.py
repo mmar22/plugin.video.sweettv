@@ -54,6 +54,10 @@ class Helper(object):
         self.logged = self.get_setting('logged')
         self.countryCode = self.get_setting('countryCode')
         self.mac = self.get_setting('mac')
+        self.access_token_last_update = self.get_setting('access_token_last_update')
+        self.access_token_lifetime = self.get_setting('access_token_lifetime')
+
+        self.channelList = {}
 
         self.headers = {
             'Host': 'api.sweet.tv',
