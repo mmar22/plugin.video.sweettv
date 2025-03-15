@@ -392,6 +392,7 @@ def login():
         helper.set_setting('refresh_token', str(refresh_token))
         helper.set_setting('logged', 'true')
 
+        refreshChannelList()
     else:
 
         info = jsdata.get('result', None)
