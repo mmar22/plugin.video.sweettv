@@ -1,12 +1,12 @@
 # coding: UTF-8
-import sys
+import sys, os, json
 import time
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import routing
 import urllib3
-import xbmc
+import xbmc, xbmcaddon
 import xbmcgui
 import xbmcplugin
 import xbmcvfs
@@ -23,7 +23,11 @@ except:
     handle = None  # or whatever you want to do
 helper = Helper(base_url, handle)
 plugin = routing.Plugin()
-
+#MM store to files
+addon = xbmcaddon.Addon()
+profile = xbmc.translatePath(addon.getAddonInfo('profile')).encode().decode("utf-8")
+sweet_channels = os.path.join(profile, "sweet_channels.json")
+sweet_token = os.path.join(profile, "sweet_token.json")
 
 def getTime(x, y):
     data = ''
@@ -34,7 +38,7 @@ def getTime(x, y):
     return datetime.fromtimestamp(x).strftime(data)
 
 
-def refreshChannelList():
+def channelList():
     timestamp = int(time.time())
     json_data = {
         'epg_limit_prev': 10,
@@ -49,12 +53,26 @@ def refreshChannelList():
         'need_big_icons': False,
     }
 
-    url = helper.base_api_url.format('TvService/GetChannels.json')
-    jsdata = helper.request_sess(url, 'post', headers=helper.headers, data=json_data, json=True, json_data=True)
+    try:
+        with open(sweet_channels, 'r') as openfile:
+            jsdata = json.load(openfile)
+        file_mod_time = os.path.getmtime(sweet_channels)
+        file_mod_time = datetime.fromtimestamp(file_mod_time)
+        if file_mod_time > datetime.now() - timedelta(days=1):
+            return jsdata
+        url = helper.base_api_url.format('TvService/GetChannels.json')
+    except:
+        url = helper.base_api_url.format('TvService/GetChannels.json')
+    jsdata = helper.request_sess(url, 'post', headers=helper.headers, data=json_data, jsonret=True, json_data=True)
 
     categories = {}
 
     if jsdata.get("status", None) == 'OK':
+
+        json_object = json.dumps(jsdata, indent=4)
+        with open(sweet_channels, "w") as outfile:
+            outfile.write(json_object)
+
         if "categories" in jsdata:
             for category in jsdata.get('categories', None):
                 categories.update({category.get('id', None): category.get('caption', None)})
@@ -100,8 +118,7 @@ def refreshChannelList():
             tree = ET.ElementTree(xml_root)
             if sys.version_info[:3] >= (3, 9, 0):
                 ET.indent(tree, space="  ", level=0)
-            xmlstr = '<?xml version="1.0" encoding="utf-8"?>\n'.encode("utf-8") + ET.tostring(xml_root,
-                                                                                              encoding='utf-8')
+            xmlstr = '<?xml version="1.0" encoding="utf-8"?>\n'.encode("utf-8") + ET.tostring(xml_root, encoding='utf-8')
             path_m3u = helper.get_setting('path_m3u')
             file_name = helper.get_setting('name_epg')
             if path_m3u != '' and file_name != '':
@@ -129,6 +146,13 @@ def refreshChannelList():
                     data += '#EXTINF:0 tvg-id="%s.id.com" tvg-name="%s" tvg-logo="%s" group-title="%s" %s,%s\nplugin://plugin.video.sweettv/playvid/%s|null\n' % (
                         cid, cName, img, category_list, catchup, cName, cid)
 
+          # Step 1: Ensure 'data' is Unicode (if it's not already)
+            if isinstance(data, str):  # If it's a byte string
+                data = data.decode('utf-8')  # Convert to Unicode
+
+          # Step 2: Encode the data to UTF-8
+            if isinstance(data, unicode):  # If it's a Unicode string
+                data = data.encode('utf-8')  # Convert to UTF-8 byte string
             file_name = helper.get_setting('name_m3u')
             if path_m3u != '' and file_name != '':
                 f = xbmcvfs.File(path_m3u + file_name, 'w')
@@ -143,6 +167,8 @@ def refreshChannelList():
 
 @plugin.route('/')
 def root():
+    CreateDatas()
+
     refresh_token = helper.get_setting('refresh_token')
 
     xbmc.log("refresh " + refresh_token, xbmc.LOGDEBUG)
@@ -161,21 +187,13 @@ def root():
     helper.eod()
 
 
-def initSettings():
+def CreateDatas():
     if not helper.uuid:
         import uuid
         uuidx = uuid.uuid4()
         helper.set_setting('uuid', str(uuidx))
-
     if not helper.mac:
         helper.set_setting('mac', helper.get_random_mac())
-
-    if not helper.access_token_last_update:
-        helper.set_setting('access_token_last_update', str(0))
-
-    if not helper.access_token_lifetime:
-        helper.set_setting('access_token_lifetime', str(0))
-
     return
 
 
@@ -187,36 +205,28 @@ def startwt():
 
 
 def refreshToken():
-    # Reduce the token validity to refresh it a bit earlier
-    # In this case we always will have a valid Bearer and token
-    if int(time.time()) - int(helper.get_setting('access_token_last_update')) > int(int(
-            helper.get_setting('access_token_lifetime')) * 0.9):
-        json_data = helper.json_data
-        json_data.update({"refresh_token": helper.get_setting('refresh_token')})
+    json_data = helper.json_data
+    json_data.update({"refresh_token": helper.get_setting('refresh_token')})
+    if not json_data.get("refresh_token"):
+        return False
+    if not helper.get_setting('logged'):
+        return False
+    jsdata = helper.request_sess(helper.token_url, 'post', headers=helper.headers, data=json_data, jsonret=True,
+                                 json_data=True)
+    xbmc.log("refresh " + str(jsdata), xbmc.LOGDEBUG)
+    xbmc.log("refresh " + str(json_data), xbmc.LOGERROR)
 
-        jsdata = helper.request_sess(helper.token_url, 'post', headers=helper.headers, data=json_data, json=True,
-                                     json_data=True)
+    if jsdata.get("result", None) == 'COMPLETED' or jsdata.get("result", None) == 'OK':
+        xbmc.log("Token refresh success", xbmc.LOGDEBUG)
+        access_token = jsdata.get("access_token")
+        helper.set_setting('bearer', 'Bearer ' + str(access_token))
+        helper.headers.update({'authorization': helper.get_setting('bearer')})
 
-        xbmc.log("refresh " + str(jsdata), xbmc.LOGDEBUG)
-
-        if jsdata.get("result", None) == 'COMPLETED' or jsdata.get("result", None) == 'OK':
-            xbmc.log("Token refresh success", xbmc.LOGDEBUG)
-            helper.set_setting('bearer', 'Bearer ' + str(jsdata.get("access_token")))
-            helper.headers.update({'authorization': helper.get_setting('bearer')})
-
-            helper.set_setting('access_token_last_update', str(int(time.time())))
-
-            access_token_lifetime = int(jsdata.get("expires_in"))
-            helper.set_setting('access_token_lifetime', str(access_token_lifetime))
-
-            return True
-        else:
-            xbmc.log("Token refresh failed", xbmc.LOGERROR)
-            helper.set_setting('logged', 'false')
-
-            return False
-
-    return True
+        channelList()
+        return True
+    else:
+        xbmc.log("Token refresh failed", xbmc.LOGERROR)
+        return False
 
 
 @plugin.route('/getEPG/<epgid>')
@@ -236,17 +246,19 @@ def getEPG(epgid):
         "need_offsets": False
     }
     url = 'https://api.sweet.tv/TvService/GetChannels.json'
-    jsdata = helper.request_sess(url, 'post', headers=helper.headers, data=json_data, json=True, json_data=True)
+    jsdata = helper.request_sess(url, 'post', headers=helper.headers, data=json_data, jsonret=True, json_data=True)
+#    jsdata = channelList()
 
     if jsdata.get("code", None) == 16:
         helper.set_setting('bearer', '')
         refr = refreshToken()
         if refr:
-            mainpage(epgid)
+            mainpage(id)
         else:
             return
     if jsdata.get("status", None) == 'OK':
-        progs = jsdata['list'][0]['epg']
+        indexid = next((i for i, item in enumerate(jsdata['list']) if item['id'] == int(epgid)), None)
+        progs = jsdata['list'][indexid]['epg']
         for p in progs:
             now = int(time.time())
             tStart = p.get('time_start', None)
@@ -274,7 +286,7 @@ def getEPG(epgid):
 
 @plugin.route('/mainpage/<mainid>')
 def mainpage(mainid):
-    jsdata = refreshChannelList()
+    jsdata = channelList()
 
     if jsdata.get("code", None) == 16:
         helper.set_setting('bearer', '')
@@ -321,6 +333,7 @@ def mainpage(mainid):
                 art = {'icon': imag, 'fanart': helper.addon.getAddonInfo('fanart')}
 
                 info = {'title': title, 'plot': epg}
+
                 helper.add_item('[COLOR gold][B]' + title + '[/COLOR][/B]', mod, playable=ispla, info=info, art=art,
                                 folder=fold)
 
@@ -343,7 +356,7 @@ def logout():
     log_out = helper.dialog_choice('Logout', 'Do you want to log out?', agree='Yes', disagree='No')
     if log_out:
         json_data = {"refresh_token": helper.get_setting('refresh_token')}
-        helper.request_sess(helper.logout_url, 'post', headers=helper.headers, data=json_data, json=True,
+        helper.request_sess(helper.logout_url, 'post', headers=helper.headers, data=json_data, jsonret=True,
                             json_data=True)
         helper.set_setting('bearer', '')
         helper.set_setting('logged', 'false')
@@ -352,7 +365,7 @@ def logout():
 
 @plugin.route('/login')
 def login():
-    jsdata = helper.request_sess(helper.auth_url, 'post', headers=helper.headers, data=helper.json_data, json=True,
+    jsdata = helper.request_sess(helper.auth_url, 'post', headers=helper.headers, data=helper.json_data, jsonret=True,
                                  json_data=True)
     auth_code = jsdata.get("auth_code")
     if jsdata.get("result") != 'OK' or not auth_code:
@@ -376,9 +389,9 @@ def login():
             helper.notification('Information', 'Login interrupted')
             helper.set_setting('logged', 'false')
             return
-        jsdata = helper.request_sess(helper.check_auth_url, 'post', headers=headers, data=json_data, json=True,
+        jsdata = helper.request_sess(helper.check_auth_url, 'post', headers=headers, data=json_data, jsonret=True,
                                      json_data=False)
-        xbmc.log("login " + str(jsdata), xbmc.LOGDEBUG)
+        xbmc.log("login " + str(jsdata), xbmc.LOGERROR)
         if jsdata.get("result") == "COMPLETED":
             result = jsdata
         else:
@@ -391,8 +404,10 @@ def login():
         helper.set_setting('bearer', 'Bearer ' + str(access_token))
         helper.set_setting('refresh_token', str(refresh_token))
         helper.set_setting('logged', 'true')
+        json_object = json.dumps(result, indent=4)
+        with open(sweet_token, "w") as outfile:
+            outfile.write(json_object)
 
-        refreshChannelList()
     else:
 
         info = jsdata.get('result', None)
@@ -427,7 +442,7 @@ def playvid(videoid):
             vod = True
 
         url = helper.base_api_url.format('TvService/OpenStream.json')
-        jsdata = helper.request_sess(url, 'post', headers=helper.headers, data=json_data, json=True, json_data=True)
+        jsdata = helper.request_sess(url, 'post', headers=helper.headers, data=json_data, jsonret=True, json_data=True)
 
         if jsdata.get("code", None) == 16:
             helper.set_setting('bearer', '')
@@ -467,10 +482,12 @@ def playvid(videoid):
                 PROTOCOL = 'hls'
                 subs = None
 
+            xbmc.log("playvid2 " + stream_url, xbmc.LOGERROR)
+
             if helper.get_setting('playerType') == 'ffmpeg' and DRM is None:
                 helper.ffmpeg_player(stream_url)
             else:
-                helper.playstream(stream_url, lic_url, PROTOCOL, DRM, flags=False, subs=subs, vod=vod)
+                helper.PlayVid(stream_url, lic_url, PROTOCOL, DRM, flags=False, subs=subs, vod=vod)
 
 
 @plugin.route('/listM3U')
@@ -483,7 +500,7 @@ def listM3U():
                                           xbmcgui.NOTIFICATION_ERROR)
             return
         xbmcgui.Dialog().notification('Sweet tv', 'Generating M3U list.', xbmcgui.NOTIFICATION_INFO)
-        channels = refreshChannelList()
+        channels = channelList()
         if channels.get("status", None) == 'OK':
             xbmcgui.Dialog().notification('Sweet.tv', 'M3U list generated.', xbmcgui.NOTIFICATION_INFO)
     else:

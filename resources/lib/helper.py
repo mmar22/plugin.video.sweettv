@@ -1,6 +1,6 @@
 import random
 import sys
-import uuid
+import uuid, json
 
 import requests
 import xbmc
@@ -54,8 +54,6 @@ class Helper(object):
         self.logged = self.get_setting('logged')
         self.countryCode = self.get_setting('countryCode')
         self.mac = self.get_setting('mac')
-        self.access_token_last_update = self.get_setting('access_token_last_update')
-        self.access_token_lifetime = self.get_setting('access_token_lifetime')
 
         self.headers = {
             'Host': 'api.sweet.tv',
@@ -155,7 +153,7 @@ class Helper(object):
         xbmcgui.Dialog().notification(heading, message, time=3000)
 
     def request_sess(self, url, method='get', data=None, headers=None, cookies=None, params=None, result=True,
-                     json=False,
+                     jsonret=False,
                      allow=True, json_data=False):
         if params is None:
             params = {}
@@ -172,7 +170,9 @@ class Helper(object):
                                  allow_redirects=allow)
         elif method == 'post':
             if json_data:
-                resp = self.sess.post(url, headers=headers, json=data, cookies=cookies, timeout=30, params=params,
+                dataq = json.dumps(data)
+                headers.update({'Content-Type': 'application/json'})
+                resp = self.sess.post(url, headers=headers, data=dataq, cookies=cookies, timeout=30, params=params,
                                       verify=False, allow_redirects=allow)
             else:
                 resp = self.sess.post(url, headers=headers, data=data, cookies=cookies, timeout=30, params=params,
@@ -181,11 +181,15 @@ class Helper(object):
             resp = self.sess.delete(url, headers=headers, cookies=cookies, timeout=30, params=params, verify=False,
                                     allow_redirects=allow)
         if result:
-            return resp.json() if json else resp_text(resp)
+          try:
+            return resp.json() if jsonret else resp_text(resp)
+          except ValueError:
+        # Handle the error when JSON is invalid
+            resp_text(resp)
         else:
             return resp
 
-    def playstream(self, mpdurl, lic_url='', PROTOCOL='', DRM='', certificate='', flags=True, subs=None, vod=False):
+    def PlayVid(self, mpdurl, lic_url='', PROTOCOL='', DRM='', certificate='', flags=True, subs=None, vod=False):
         from inputstreamhelper import Helper
         play_item = xbmcgui.ListItem(path=mpdurl)
         if subs:
