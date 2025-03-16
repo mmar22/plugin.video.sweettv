@@ -57,8 +57,6 @@ class Helper(object):
         self.access_token_last_update = self.get_setting('access_token_last_update')
         self.access_token_lifetime = self.get_setting('access_token_lifetime')
 
-        self.channelList = {}
-
         self.headers = {
             'Host': 'api.sweet.tv',
             'user-agent': self.UA,

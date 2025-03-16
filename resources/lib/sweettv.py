@@ -138,7 +138,7 @@ def refreshChannelList():
         xbmc.log("Failed to update channel list", xbmc.LOGERROR)
         xbmc.log("Failed to update channel list " + str(jsdata), xbmc.LOGDEBUG)
 
-    helper.channelList = jsdata
+    return jsdata
 
 
 @plugin.route('/')
@@ -274,7 +274,7 @@ def getEPG(epgid):
 
 @plugin.route('/mainpage/<mainid>')
 def mainpage(mainid):
-    jsdata = helper.channelList
+    jsdata = refreshChannelList()
 
     if jsdata.get("code", None) == 16:
         helper.set_setting('bearer', '')
@@ -483,7 +483,7 @@ def listM3U():
                                           xbmcgui.NOTIFICATION_ERROR)
             return
         xbmcgui.Dialog().notification('Sweet tv', 'Generating M3U list.', xbmcgui.NOTIFICATION_INFO)
-        channels = helper.channelList
+        channels = refreshChannelList()
         if channels.get("status", None) == 'OK':
             xbmcgui.Dialog().notification('Sweet.tv', 'M3U list generated.', xbmcgui.NOTIFICATION_INFO)
     else:
