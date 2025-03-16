@@ -1,22 +1,12 @@
-import time
-
-import xbmc
-
 from resources.lib.helper import Helper
-from resources.lib.sweettv import refreshToken, initSettings, refreshChannelList
+from resources.lib.sweettv import refreshToken
+import xbmc
 
 if __name__ == '__main__':
     monitor = xbmc.Monitor()
     helper = Helper()
-    refreshChannelListTimer = 0
-    initSettings()
 
     while not monitor.abortRequested():
         refreshToken()
-
-        if int(time.time()) - refreshChannelListTimer > 15 * 60:
-            refreshChannelList()
-            refreshChannelListTimer = int(time.time())
-
-        if monitor.waitForAbort(60):
+        if monitor.waitForAbort(150 * 60):
             break
